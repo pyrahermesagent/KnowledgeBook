@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { loggedIn, user } = useUserSession()
+const authError = computed(() => Boolean(useRoute().query.auth_error))
 </script>
 
 <template>
@@ -15,6 +16,10 @@ const { loggedIn, user } = useUserSession()
     </header>
 
     <main class="hero">
+      <p v-if="authError" class="auth-error">
+        Sign-in failed on our side — please try again. If it keeps happening,
+        the server logs have the details.
+      </p>
       <h1>Documentation your users<br>will actually read.</h1>
       <p class="muted">
         Create beautiful docs and guides with full markdown support, instant autosave
@@ -59,6 +64,16 @@ const { loggedIn, user } = useUserSession()
 }
 .brand { font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 8px; }
 .hero { flex: 1; max-width: 860px; margin: 0 auto; padding: 80px 24px; text-align: center; }
+.auth-error {
+  background: #fdecea;
+  border: 1px solid #f5c6c0;
+  color: #c0392b;
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  margin: 0 auto 24px;
+  max-width: 560px;
+  font-size: 14px;
+}
 .hero h1 { font-size: 44px; line-height: 1.15; margin: 0 0 16px; }
 .hero > p { font-size: 18px; max-width: 560px; margin: 0 auto 32px; }
 .btn-lg { padding: 12px 24px; font-size: 16px; }

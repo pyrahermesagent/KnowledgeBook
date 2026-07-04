@@ -99,6 +99,12 @@ jobs:
               echo "Missing GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / SESSION_PASSWORD secrets."
               exit 1
             fi
+            if [ "${#SESSION_PASSWORD}" -lt 32 ]; then
+              echo "SESSION_PASSWORD is ${#SESSION_PASSWORD} characters but must be at least 32."
+              echo "Session cookie sealing (iron) rejects shorter keys, so Google sign-in fails with a 500."
+              echo "Generate one with: openssl rand -hex 32"
+              exit 1
+            fi
             mkdir -p "$DEPLOY_DIR"
             if [ ! -d "$DEPLOY_DIR/.git" ]; then
               git clone --branch "$DEPLOY_BRANCH" "$REPO_URL" "$DEPLOY_DIR"

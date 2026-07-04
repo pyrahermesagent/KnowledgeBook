@@ -114,16 +114,19 @@ jobs:
             git checkout -f "$DEPLOY_BRANCH"
             git reset --hard "origin/$DEPLOY_BRANCH"
             git clean -fd
+            # docker compose interpolates $VAR inside env_file values, silently
+            # mangling secrets that contain a dollar sign — escape them as $$.
+            esc() { printf '%s' "$1" | sed 's/\$/$$/g'; }
             printf '%s\n' \
-              "NUXT_OAUTH_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID" \
-              "NUXT_OAUTH_GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET" \
+              "NUXT_OAUTH_GOOGLE_CLIENT_ID=$(esc "$GOOGLE_CLIENT_ID")" \
+              "NUXT_OAUTH_GOOGLE_CLIENT_SECRET=$(esc "$GOOGLE_CLIENT_SECRET")" \
               "NUXT_OAUTH_GOOGLE_REDIRECT_URL=$APP_URL/api/auth/google" \
-              "NUXT_SESSION_PASSWORD=$SESSION_PASSWORD" \
+              "NUXT_SESSION_PASSWORD=$(esc "$SESSION_PASSWORD")" \
               "NUXT_S3_ENDPOINT=$S3_ENDPOINT" \
               "NUXT_S3_REGION=$S3_REGION" \
               "NUXT_S3_BUCKET=$S3_BUCKET" \
-              "NUXT_S3_ACCESS_KEY=$S3_ACCESS_KEY" \
-              "NUXT_S3_SECRET_KEY=$S3_SECRET_KEY" \
+              "NUXT_S3_ACCESS_KEY=$(esc "$S3_ACCESS_KEY")" \
+              "NUXT_S3_SECRET_KEY=$(esc "$S3_SECRET_KEY")" \
               "NUXT_S3_PUBLIC_URL=$S3_PUBLIC_URL" \
               > .env
             chmod 600 .env

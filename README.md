@@ -42,8 +42,27 @@ All secrets live in `.env` (see [.env.example](.env.example)):
 
 ## Deployment
 
-Every push to `main` builds the app and publishes a Docker image to GitHub Container
-Registry via [GitHub Actions](.github/workflows/publish.yml).
+Every push to `main` runs [GitHub Actions](.github/workflows/publish.yml), which:
+
+1. builds the app and publishes a Docker image to GitHub Container Registry, and
+2. **deploys to a Hetzner server over SSH** — it pulls the repo on the server, writes
+   `.env` from repository secrets, rebuilds the image and restarts `docker compose`.
+   The `knowledgebook-data` volume (SQLite database + local uploads) is preserved
+   across deployments.
+
+The deploy step is skipped until the SSH secrets are configured. Set these repository
+secrets (Settings → Secrets and variables → Actions):
+
+| Secret | Purpose |
+| --- | --- |
+| `SSH_HOST`, `SSH_USER`, `SSH_PORT`, `SSH_KEY` | SSH access to the Hetzner server (private key) |
+| `DEPLOY_DIR` | Checkout directory on the server (default `/opt/knowledgebook`) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth credentials |
+| `SESSION_PASSWORD` | Cookie encryption key (32+ random chars) |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_PUBLIC_URL` | Hetzner Object Storage |
+
+The server needs `git` and Docker with the compose plugin installed. You can also
+trigger a deploy manually from the Actions tab (`workflow_dispatch`).
 
 ```sh
 docker compose up -d        # builds locally, persists data in a named volume

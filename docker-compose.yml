@@ -1,0 +1,14 @@
+services:
+  knowledgebook:
+    build: .
+    # or use the published image:
+    # image: ghcr.io/OWNER/knowledgebook:latest
+    ports:
+      - "3000:3000"
+    env_file: .env
+    volumes:
+      - knowledgebook-data:/app/.data
+    restart: unless-stopped
+
+volumes:
+  knowledgebook-data:

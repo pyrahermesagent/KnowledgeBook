@@ -34,6 +34,7 @@ All secrets live in `.env` (see [.env.example](.env.example)):
 | Variable | Purpose |
 | --- | --- |
 | `NUXT_OAUTH_GOOGLE_CLIENT_ID` / `NUXT_OAUTH_GOOGLE_CLIENT_SECRET` | Google OAuth credentials |
+| `NUXT_OAUTH_GOOGLE_REDIRECT_URL` | Public OAuth callback URL, e.g. `https://knowledgebook.plutolabs.app/api/auth/google`. Required behind a reverse proxy to avoid `redirect_uri_mismatch` |
 | `NUXT_SESSION_PASSWORD` | Cookie encryption key (32+ random chars) |
 | `NUXT_DATABASE_PATH` | SQLite database file location |
 | `NUXT_S3_ENDPOINT`, `NUXT_S3_REGION`, `NUXT_S3_BUCKET`, `NUXT_S3_ACCESS_KEY`, `NUXT_S3_SECRET_KEY` | Hetzner Object Storage (S3-compatible) |
@@ -57,6 +58,7 @@ secrets (Settings → Secrets and variables → Actions):
 | --- | --- |
 | `SSH_HOST`, `SSH_USER`, `SSH_PORT`, `SSH_KEY` | SSH access to the Hetzner server (private key) |
 | `DEPLOY_DIR` | Checkout directory on the server (default `/opt/knowledgebook`) |
+| `APP_URL` | Public origin of the app (default `https://knowledgebook.plutolabs.app`), used for the OAuth callback URL |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth credentials |
 | `SESSION_PASSWORD` | Cookie encryption key (32+ random chars) |
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_PUBLIC_URL` | Hetzner Object Storage |

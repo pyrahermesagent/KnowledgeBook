@@ -9,6 +9,9 @@ projects with sections and pages, write in full markdown, and share them at a cl
 - **Google sign-in** — owners authenticate with their Google account (OAuth 2.0)
 - **Projects at `/<name>`** — each project gets its own public link
 - **Sections & pages** — organize content in a GitBook-style sidebar tree
+- **Import from GitBook** — paste a published GitBook site's URL and its whole
+  structure and content are imported as a new project (uses the site's `llms.txt`
+  and markdown exports; GitBook-specific syntax is converted to plain markdown)
 - **Full markdown** — tables, code blocks with syntax highlighting, images, quotes, lists
 - **Autosave** — edits are saved automatically with a live status indicator
 - **Uploads to Hetzner Object Storage** — images and files go to S3-compatible storage

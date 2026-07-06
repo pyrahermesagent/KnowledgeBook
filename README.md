@@ -12,6 +12,8 @@ projects with sections and pages, write in full markdown, and share them at a cl
 - **Import from GitBook** — paste a published GitBook site's URL and its whole
   structure and content are imported as a new project (uses the site's `llms.txt`
   and markdown exports; GitBook-specific syntax is converted to plain markdown)
+- **MCP server for AI agents** — every instance exposes its documentation over
+  the Model Context Protocol at `/mcp` (see [AI agents](#ai-agents-mcp))
 - **Full markdown** — tables, code blocks with syntax highlighting, images, quotes, lists
 - **Autosave** — edits are saved automatically with a live status indicator
 - **Uploads to Hetzner Object Storage** — images and files go to S3-compatible storage
@@ -43,6 +45,39 @@ All secrets live in `.env` (see [.env.example](.env.example)):
 | `NUXT_S3_ENDPOINT`, `NUXT_S3_REGION`, `NUXT_S3_BUCKET`, `NUXT_S3_ACCESS_KEY`, `NUXT_S3_SECRET_KEY` | Hetzner Object Storage (S3-compatible) |
 | `NUXT_S3_PUBLIC_URL` | Optional public base URL for uploaded objects |
 | `NUXT_UPLOADS_DIR` | Local-disk upload fallback directory |
+
+## AI agents (MCP)
+
+The documentation is readable by AI agents through the
+[Model Context Protocol](https://modelcontextprotocol.io). A stateless
+Streamable HTTP MCP server runs at **`/mcp`** and exposes read-only tools over
+the same public content as the docs pages:
+
+| Tool | Purpose |
+| --- | --- |
+| `list_projects` | Discover the documentation projects on this instance |
+| `get_project` | Section/page tree of one project (returns page slugs) |
+| `get_page` | Full markdown content of a page |
+| `search` | Full-text search across titles and content, optionally per project |
+
+Connect from Claude Code:
+
+```sh
+claude mcp add --transport http knowledgebook https://knowledgebook.plutolabs.app/mcp
+```
+
+or from any MCP client supporting Streamable HTTP:
+
+```json
+{
+  "mcpServers": {
+    "knowledgebook": { "type": "http", "url": "https://knowledgebook.plutolabs.app/mcp" }
+  }
+}
+```
+
+No authentication is required — the server exposes exactly what the public
+documentation pages already show.
 
 ## Deployment
 

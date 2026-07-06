@@ -12,6 +12,11 @@ const slugTouched = ref(false)
 const creating = ref(false)
 const createError = ref('')
 
+const showImport = ref(false)
+const importUrl = ref('')
+const importing = ref(false)
+const importError = ref('')
+
 watch(newName, (name) => {
   if (!slugTouched.value) newSlug.value = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 })
@@ -29,6 +34,22 @@ async function createProject () {
     createError.value = e.data?.message ?? 'Failed to create project'
   } finally {
     creating.value = false
+  }
+}
+
+async function importFromGitBook () {
+  importing.value = true
+  importError.value = ''
+  try {
+    const { slug } = await $fetch('/api/projects/import-gitbook', {
+      method: 'POST',
+      body: { url: importUrl.value }
+    })
+    await navigateTo(`/dashboard/${slug}`)
+  } catch (e: any) {
+    importError.value = e.data?.message ?? 'Import failed — check the URL and try again'
+  } finally {
+    importing.value = false
   }
 }
 
@@ -53,8 +74,23 @@ async function logout () {
     <main class="dash-main">
       <div class="dash-title">
         <h1>Your projects</h1>
-        <button class="btn btn-primary" @click="showCreate = !showCreate">+ New project</button>
+        <div class="dash-actions">
+          <button class="btn" @click="showImport = !showImport; showCreate = false">Import from GitBook</button>
+          <button class="btn btn-primary" @click="showCreate = !showCreate; showImport = false">+ New project</button>
+        </div>
       </div>
+
+      <form v-if="showImport" class="create-card" @submit.prevent="importFromGitBook">
+        <label>GitBook URL
+          <input v-model="importUrl" class="input" type="url" placeholder="https://docs.example.com" required :disabled="importing">
+        </label>
+        <p class="muted import-hint">
+          Paste the address of a published GitBook site. All of its sections and pages are imported
+          into a new project as markdown.
+        </p>
+        <p v-if="importError" class="error">{{ importError }}</p>
+        <button class="btn btn-primary" :disabled="importing">{{ importing ? 'Importing… this can take a minute' : 'Import documentation' }}</button>
+      </form>
 
       <form v-if="showCreate" class="create-card" @submit.prevent="createProject">
         <label>Name
@@ -81,6 +117,7 @@ async function logout () {
               <strong>{{ p.name }}</strong>
               <div class="muted card-slug">/{{ p.slug }}</div>
             </div>
+            <span v-if="p.role === 'member'" class="role-chip">Member</span>
           </div>
           <p class="muted card-desc">{{ p.description || 'No description yet.' }}</p>
         </NuxtLink>
@@ -106,6 +143,8 @@ async function logout () {
 .dash-main { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
 .dash-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
 .dash-title h1 { margin: 0; font-size: 26px; }
+.dash-actions { display: flex; gap: 8px; }
+.import-hint { margin: 0; font-size: 13px; }
 .create-card {
   display: grid;
   gap: 12px;
@@ -129,6 +168,16 @@ async function logout () {
 }
 .card:hover { border-color: var(--accent); box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
 .card-head { display: flex; gap: 12px; align-items: center; }
+.role-chip {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  flex-shrink: 0;
+}
 .card-slug { font-size: 13px; }
 .card-desc { font-size: 14px; margin: 12px 0 0; }
 .empty { text-align: center; padding: 64px 0; }

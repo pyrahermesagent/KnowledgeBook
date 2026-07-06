@@ -1,5 +1,5 @@
 export default defineEventHandler(async (event) => {
-  const { project } = await requireOwnedProject(event)
+  const { project } = await requireProjectAccess(event)
   const body = await readBody<{ title?: string }>(event)
   const title = body.title?.trim()
   if (!title) throw createError({ statusCode: 400, message: 'Section title is required' })

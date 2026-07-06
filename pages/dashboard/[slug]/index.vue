@@ -182,6 +182,59 @@ async function deleteProject () {
   await navigateTo('/dashboard')
 }
 
+// ---------- team ----------
+interface TeamMember { id: number, email: string, name: string, avatar: string, pending: boolean }
+const { user: sessionUser } = useUserSession()
+const showTeam = ref(false)
+const team = ref<{ admin: { email: string, name: string, avatar: string }, members: TeamMember[] } | null>(null)
+const newMemberEmail = ref('')
+const teamError = ref('')
+const teamBusy = ref(false)
+
+async function loadTeam () {
+  team.value = await $fetch(`/api/projects/${slug}/members`)
+}
+
+async function openTeam () {
+  showTeam.value = true
+  teamError.value = ''
+  try {
+    await loadTeam()
+  } catch (e: any) {
+    teamError.value = e.data?.message ?? 'Failed to load members'
+  }
+}
+
+async function addMember () {
+  teamBusy.value = true
+  teamError.value = ''
+  try {
+    await $fetch(`/api/projects/${slug}/members`, { method: 'POST', body: { email: newMemberEmail.value } })
+    newMemberEmail.value = ''
+    await loadTeam()
+  } catch (e: any) {
+    teamError.value = e.data?.message ?? 'Failed to add member'
+  } finally {
+    teamBusy.value = false
+  }
+}
+
+async function removeMember (member: TeamMember) {
+  const self = member.email === (sessionUser.value?.email ?? '').toLowerCase()
+  const question = self
+    ? 'Leave this project? You will lose access to the editor.'
+    : `Remove ${member.name || member.email} from this project?`
+  if (!confirm(question)) return
+  teamError.value = ''
+  try {
+    await $fetch(`/api/projects/${slug}/members/${member.id}`, { method: 'DELETE' })
+    if (self) return await navigateTo('/dashboard')
+    await loadTeam()
+  } catch (e: any) {
+    teamError.value = e.data?.message ?? 'Failed to remove member'
+  }
+}
+
 // Open the first page initially (client only — content fetch requires the session).
 onMounted(() => { if (firstPage.value) openPage(firstPage.value.id) })
 
@@ -234,6 +287,7 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
       </nav>
 
       <div class="sidebar-bottom">
+        <button class="btn btn-sm" @click="openTeam">👥 Team</button>
         <button class="btn btn-sm" @click="openSettings">⚙ Project settings</button>
       </div>
     </aside>
@@ -295,12 +349,64 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
           </span>
         </label>
         <div class="modal-actions">
-          <button class="btn btn-danger" @click="deleteProject">Delete project</button>
+          <button v-if="project.isAdmin" class="btn btn-danger" @click="deleteProject">Delete project</button>
           <span style="flex: 1" />
           <button class="btn" @click="showSettings = false">Cancel</button>
           <button class="btn btn-primary" :disabled="savingSettings" @click="saveSettings">
             {{ savingSettings ? 'Saving…' : 'Save' }}
           </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showTeam" class="modal-backdrop" @click.self="showTeam = false">
+      <div class="modal">
+        <h2>Team</h2>
+        <p class="muted team-hint">
+          Everyone below can edit this project and manage members. The admin cannot be removed.
+        </p>
+
+        <div v-if="team" class="member-list">
+          <div class="member-row">
+            <img v-if="team.admin.avatar" :src="team.admin.avatar" alt="" class="member-avatar">
+            <span v-else class="member-avatar member-avatar-fallback">{{ (team.admin.name || team.admin.email)[0]?.toUpperCase() }}</span>
+            <span class="member-name">
+              {{ team.admin.name || team.admin.email }}
+              <span class="muted member-email">{{ team.admin.email }}</span>
+            </span>
+            <span class="badge badge-admin">Admin</span>
+          </div>
+          <div v-for="member in team.members" :key="member.id" class="member-row">
+            <img v-if="member.avatar" :src="member.avatar" alt="" class="member-avatar">
+            <span v-else class="member-avatar member-avatar-fallback">{{ (member.name || member.email)[0]?.toUpperCase() }}</span>
+            <span class="member-name">
+              {{ member.name || member.email }}
+              <span class="muted member-email">{{ member.name ? member.email : 'Has not signed in yet' }}</span>
+            </span>
+            <span v-if="member.pending" class="badge">Invited</span>
+            <span v-else class="badge">Member</span>
+            <button class="icon-btn" title="Remove member" @click="removeMember(member)">🗑</button>
+          </div>
+        </div>
+
+        <form class="member-add" @submit.prevent="addMember">
+          <input
+            v-model="newMemberEmail"
+            class="input"
+            type="email"
+            placeholder="name@gmail.com"
+            required
+            :disabled="teamBusy"
+          >
+          <button class="btn btn-primary" :disabled="teamBusy || !newMemberEmail.trim()">
+            {{ teamBusy ? 'Adding…' : 'Add member' }}
+          </button>
+        </form>
+        <p v-if="teamError" class="error">{{ teamError }}</p>
+
+        <div class="modal-actions">
+          <span style="flex: 1" />
+          <button class="btn" @click="showTeam = false">Close</button>
         </div>
       </div>
     </div>
@@ -367,7 +473,7 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
 .icon-btn:hover:not(:disabled) { background: var(--border); color: var(--text); }
 .icon-btn:disabled { opacity: 0.3; cursor: default; }
 .add-section { margin: 4px 8px; }
-.sidebar-bottom { padding: 12px; border-top: 1px solid var(--border); }
+.sidebar-bottom { padding: 12px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
 
 .editor-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .editor-toolbar {
@@ -419,4 +525,34 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
 .color-row { display: flex; align-items: center; gap: 10px; }
 .color-input { width: 44px; height: 34px; padding: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); cursor: pointer; }
 .modal-actions { display: flex; gap: 8px; margin-top: 8px; }
+.team-hint { margin: 0; font-size: 13px; }
+.member-list { display: grid; gap: 4px; }
+.member-row { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-bottom: 1px solid var(--border); }
+.member-row:last-child { border-bottom: none; }
+.member-avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; }
+.member-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+.member-name { display: grid; flex: 1; min-width: 0; font-size: 14px; line-height: 1.3; }
+.member-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.member-email { font-size: 12px; }
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  flex-shrink: 0;
+}
+.badge-admin { background: var(--accent); border-color: var(--accent); color: #fff; }
+.member-add { display: flex; gap: 8px; }
+.member-add .input { flex: 1; }
+.error { color: #c0392b; margin: 0; font-size: 14px; }
 </style>

@@ -28,13 +28,37 @@ export function getProjectBySlug (slug: string): ProjectRow | undefined {
   return useDb().prepare('SELECT * FROM projects WHERE slug = ?').get(slug) as ProjectRow | undefined
 }
 
-/** Loads the project from the `slug` route param and asserts the session user owns it. */
-export async function requireOwnedProject (event: H3Event): Promise<{ user: SessionUser, project: ProjectRow }> {
+export function normalizeEmail (email: string): string {
+  return email.trim().toLowerCase()
+}
+
+/** True when the email belongs to a member of the project (the admin/owner is not stored as a member). */
+export function isProjectMember (projectId: number, email: string): boolean {
+  return Boolean(useDb()
+    .prepare('SELECT 1 FROM project_members WHERE project_id = ? AND email = ?')
+    .get(projectId, normalizeEmail(email)))
+}
+
+/**
+ * Loads the project from the `slug` route param and asserts the session user
+ * can work on it — either as the admin (owner) or as an invited member.
+ */
+export async function requireProjectAccess (event: H3Event): Promise<{ user: SessionUser, project: ProjectRow, isAdmin: boolean }> {
   const user = await requireUser(event)
   const slug = getRouterParam(event, 'slug')!
   const project = getProjectBySlug(slug)
   if (!project) throw createError({ statusCode: 404, message: 'Project not found' })
-  if (project.owner_id !== user.id) throw createError({ statusCode: 403, message: 'You do not own this project' })
+  const isAdmin = project.owner_id === user.id
+  if (!isAdmin && !isProjectMember(project.id, user.email)) {
+    throw createError({ statusCode: 403, message: 'You are not a member of this project' })
+  }
+  return { user, project, isAdmin }
+}
+
+/** Like requireProjectAccess, but only the project admin (owner) passes. */
+export async function requireProjectAdmin (event: H3Event): Promise<{ user: SessionUser, project: ProjectRow }> {
+  const { user, project, isAdmin } = await requireProjectAccess(event)
+  if (!isAdmin) throw createError({ statusCode: 403, message: 'Only the project admin can do this' })
   return { user, project }
 }
 

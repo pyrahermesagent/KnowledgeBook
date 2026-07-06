@@ -1,6 +1,6 @@
 // Owner: autosave endpoint — updates title/content/position/section of a page.
 export default defineEventHandler(async (event) => {
-  const { project } = await requireOwnedProject(event)
+  const { project } = await requireProjectAccess(event)
   const id = Number(getRouterParam(event, 'id'))
   const body = await readBody<{ title?: string, content?: string, position?: number, sectionId?: number | null }>(event)
 

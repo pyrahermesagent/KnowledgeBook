@@ -37,6 +37,13 @@ export function useDb (): Database.Database {
       title      TEXT NOT NULL,
       position   INTEGER NOT NULL DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS project_members (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      email      TEXT NOT NULL,
+      added_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (project_id, email)
+    );
     CREATE TABLE IF NOT EXISTS pages (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,

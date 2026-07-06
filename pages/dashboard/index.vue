@@ -117,6 +117,7 @@ async function logout () {
               <strong>{{ p.name }}</strong>
               <div class="muted card-slug">/{{ p.slug }}</div>
             </div>
+            <span v-if="p.role === 'member'" class="role-chip">Member</span>
           </div>
           <p class="muted card-desc">{{ p.description || 'No description yet.' }}</p>
         </NuxtLink>
@@ -167,6 +168,16 @@ async function logout () {
 }
 .card:hover { border-color: var(--accent); box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
 .card-head { display: flex; gap: 12px; align-items: center; }
+.role-chip {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  flex-shrink: 0;
+}
 .card-slug { font-size: 13px; }
 .card-desc { font-size: 14px; margin: 12px 0 0; }
 .empty { text-align: center; padding: 64px 0; }

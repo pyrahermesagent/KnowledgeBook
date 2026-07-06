@@ -14,6 +14,9 @@ projects with sections and pages, write in full markdown, and share them at a cl
   and markdown exports; GitBook-specific syntax is converted to plain markdown)
 - **MCP server for AI agents** — every instance exposes its documentation over
   the Model Context Protocol at `/mcp` (see [AI agents](#ai-agents-mcp))
+- **Teams** — invite people to a project by their Google email; members edit
+  content and manage the member list, while the single non-removable admin
+  (the project creator) is the only one who can delete the project
 - **Full markdown** — tables, code blocks with syntax highlighting, images, quotes, lists
 - **Autosave** — edits are saved automatically with a live status indicator
 - **Uploads to Hetzner Object Storage** — images and files go to S3-compatible storage

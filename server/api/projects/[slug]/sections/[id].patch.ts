@@ -1,5 +1,5 @@
 export default defineEventHandler(async (event) => {
-  const { project } = await requireOwnedProject(event)
+  const { project } = await requireProjectAccess(event)
   const id = Number(getRouterParam(event, 'id'))
   const body = await readBody<{ title?: string, position?: number }>(event)
 

@@ -1,6 +1,6 @@
 // Owner: update project settings (name, description, accent color, icon).
 export default defineEventHandler(async (event) => {
-  const { project } = await requireOwnedProject(event)
+  const { project } = await requireProjectAccess(event)
   const body = await readBody<{ name?: string, description?: string, accentColor?: string, iconUrl?: string }>(event)
 
   const name = body.name !== undefined ? body.name.trim() : project.name

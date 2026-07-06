@@ -16,7 +16,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const session = await getUserSession(event)
-  const sessionUser = session.user as { id?: number } | undefined
+  const sessionUser = session.user as { id?: number, email?: string } | undefined
+  const isAdmin = sessionUser?.id === project.owner_id
+  const canEdit = isAdmin || (sessionUser?.email ? isProjectMember(project.id, sessionUser.email) : false)
 
   return {
     slug: project.slug,
@@ -24,7 +26,9 @@ export default defineEventHandler(async (event) => {
     description: project.description,
     accentColor: project.accent_color,
     iconUrl: project.icon_url,
-    isOwner: sessionUser?.id === project.owner_id,
+    isOwner: isAdmin,
+    isAdmin,
+    canEdit,
     sections
   }
 })

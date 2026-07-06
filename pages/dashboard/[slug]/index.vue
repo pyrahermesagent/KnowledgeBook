@@ -1,8 +1,14 @@
 <script setup lang="ts">
+import {
+  ArrowLeft, ExternalLink, Plus, Pencil, Trash2, ChevronUp, ChevronDown,
+  Users, Settings, Paperclip, Eye, EyeOff, Menu, X
+} from 'lucide-vue-next'
+
 definePageMeta({ middleware: 'auth' })
 
 const route = useRoute()
 const slug = route.params.slug as string
+const sidebarOpen = ref(false)
 
 const { data: project, refresh: refreshTree, error } = await useFetch(`/api/projects/${slug}`)
 if (error.value) throw createError({ statusCode: 404, message: 'Project not found' })
@@ -22,6 +28,7 @@ const firstPage = computed<PageStub | null>(() =>
   (project.value?.sections.flatMap((s: any) => s.pages)[0] as PageStub) ?? null)
 
 async function openPage (id: number) {
+  sidebarOpen.value = false
   if (saveTimer) { clearTimeout(saveTimer); await saveNow() }
   loading = true
   const page = await $fetch<any>(`/api/projects/${slug}/pages/${id}`)
@@ -247,15 +254,19 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
 
 <template>
   <div v-if="project" class="editor" :style="{ '--accent': project.accentColor }">
-    <aside class="editor-sidebar">
+    <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
+    <aside class="editor-sidebar" :class="{ open: sidebarOpen }">
       <div class="sidebar-top">
-        <NuxtLink to="/dashboard" class="btn btn-ghost btn-sm">← Projects</NuxtLink>
+        <NuxtLink to="/dashboard" class="btn btn-ghost btn-sm"><ArrowLeft :size="15" /> Projects</NuxtLink>
+        <button class="icon-btn sidebar-close" title="Close menu" @click="sidebarOpen = false"><X :size="18" /></button>
       </div>
       <div class="sidebar-project">
         <ProjectIcon :name="project.name" :icon-url="project.iconUrl" :size="34" />
         <div class="sidebar-project-name">
           <strong>{{ project.name }}</strong>
-          <NuxtLink :to="`/${project.slug}`" target="_blank" class="muted view-link">/{{ project.slug }} ↗</NuxtLink>
+          <NuxtLink :to="`/${project.slug}`" target="_blank" class="muted view-link">
+            /{{ project.slug }} <ExternalLink :size="11" />
+          </NuxtLink>
         </div>
       </div>
 
@@ -264,9 +275,9 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
           <div class="tree-section-title">
             <span>{{ section.title }}</span>
             <span class="tree-actions">
-              <button class="icon-btn" title="Add page" @click="addPage(section.id)">＋</button>
-              <button class="icon-btn" title="Rename section" @click="renameSection(section)">✎</button>
-              <button class="icon-btn" title="Delete section" @click="deleteSection(section)">🗑</button>
+              <button class="icon-btn" title="Add page" @click="addPage(section.id)"><Plus :size="14" /></button>
+              <button class="icon-btn" title="Rename section" @click="renameSection(section)"><Pencil :size="13" /></button>
+              <button class="icon-btn" title="Delete section" @click="deleteSection(section)"><Trash2 :size="13" /></button>
             </span>
           </div>
           <div
@@ -277,33 +288,37 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
           >
             <button class="tree-page-title" @click="openPage(page.id)">{{ page.title }}</button>
             <span class="tree-actions">
-              <button class="icon-btn" title="Move up" :disabled="i === 0" @click="movePage(section, i, -1)">↑</button>
-              <button class="icon-btn" title="Move down" :disabled="i === section.pages.length - 1" @click="movePage(section, i, 1)">↓</button>
-              <button class="icon-btn" title="Delete page" @click="deletePage(page)">🗑</button>
+              <button class="icon-btn" title="Move up" :disabled="i === 0" @click="movePage(section, i, -1)"><ChevronUp :size="14" /></button>
+              <button class="icon-btn" title="Move down" :disabled="i === section.pages.length - 1" @click="movePage(section, i, 1)"><ChevronDown :size="14" /></button>
+              <button class="icon-btn" title="Delete page" @click="deletePage(page)"><Trash2 :size="13" /></button>
             </span>
           </div>
         </div>
-        <button class="btn btn-ghost btn-sm add-section" @click="addSection">+ Add section</button>
+        <button class="btn btn-ghost btn-sm add-section" @click="addSection"><Plus :size="15" /> Add section</button>
       </nav>
 
       <div class="sidebar-bottom">
-        <button class="btn btn-sm" @click="openTeam">👥 Team</button>
-        <button class="btn btn-sm" @click="openSettings">⚙ Project settings</button>
+        <button class="btn btn-sm" @click="openTeam"><Users :size="15" /> Team</button>
+        <button class="btn btn-sm" @click="openSettings"><Settings :size="15" /> Settings</button>
       </div>
     </aside>
 
     <main class="editor-main">
       <template v-if="currentPageId != null">
         <div class="editor-toolbar">
+          <button class="icon-btn sidebar-toggle" title="Open menu" @click="sidebarOpen = true"><Menu :size="20" /></button>
           <input v-model="pageTitle" class="input title-input" placeholder="Page title">
-          <label class="btn btn-sm upload-btn">
-            {{ uploading ? 'Uploading…' : '📎 Insert image / file' }}
-            <input type="file" hidden :disabled="uploading" @change="insertUpload">
-          </label>
-          <button class="btn btn-sm" @click="showPreview = !showPreview">
-            {{ showPreview ? 'Hide preview' : 'Show preview' }}
-          </button>
-          <span class="muted save-state" :class="saveState">{{ saveLabel }}</span>
+          <div class="toolbar-buttons">
+            <label class="btn btn-sm upload-btn">
+              <Paperclip :size="15" /> {{ uploading ? 'Uploading…' : 'Insert file' }}
+              <input type="file" hidden :disabled="uploading" @change="insertUpload">
+            </label>
+            <button class="btn btn-sm" @click="showPreview = !showPreview">
+              <component :is="showPreview ? EyeOff : Eye" :size="15" />
+              <span class="toolbar-btn-text">{{ showPreview ? 'Hide preview' : 'Preview' }}</span>
+            </button>
+            <span class="muted save-state" :class="saveState">{{ saveLabel }}</span>
+          </div>
         </div>
         <div class="editor-panes" :class="{ single: !showPreview }">
           <textarea
@@ -318,8 +333,9 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
           </div>
         </div>
       </template>
-      <div v-else class="editor-empty muted">
-        Select a page on the left, or create one to start writing.
+      <div v-else class="editor-empty">
+        <button class="icon-btn sidebar-toggle editor-empty-menu" title="Open menu" @click="sidebarOpen = true"><Menu :size="20" /></button>
+        <span class="muted">Select a page in the menu, or create one to start writing.</span>
       </div>
     </main>
 
@@ -385,7 +401,7 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
             </span>
             <span v-if="member.pending" class="badge">Invited</span>
             <span v-else class="badge">Member</span>
-            <button class="icon-btn" title="Remove member" @click="removeMember(member)">🗑</button>
+            <button class="icon-btn" title="Remove member" @click="removeMember(member)"><Trash2 :size="15" /></button>
           </div>
         </div>
 
@@ -414,7 +430,7 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
 </template>
 
 <style scoped>
-.editor { display: flex; height: 100vh; }
+.editor { display: flex; height: 100vh; height: 100dvh; }
 .editor-sidebar {
   width: var(--sidebar-width);
   border-right: 1px solid var(--border);
@@ -423,7 +439,8 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
   flex-direction: column;
   flex-shrink: 0;
 }
-.sidebar-top { padding: 10px 12px 0; }
+.sidebar-top { padding: 10px 12px 0; display: flex; justify-content: space-between; align-items: center; }
+.sidebar-close, .sidebar-toggle, .sidebar-backdrop { display: none; }
 .sidebar-project { display: flex; gap: 10px; align-items: center; padding: 12px 16px; }
 .sidebar-project-name { display: grid; line-height: 1.3; }
 .view-link { font-size: 12px; }
@@ -461,12 +478,18 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
 }
 .tree-actions { display: none; gap: 2px; }
 .tree-page:hover .tree-actions, .tree-section-title:hover .tree-actions { display: inline-flex; }
+/* Touch screens have no hover — keep the actions visible. */
+@media (hover: none) {
+  .tree-actions { display: inline-flex; }
+}
 .icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 2px 4px;
-  font-size: 12px;
+  padding: 4px;
   color: var(--text-muted);
   border-radius: 4px;
 }
@@ -478,11 +501,13 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
 .editor-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .editor-toolbar {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
   padding: 10px 16px;
   border-bottom: 1px solid var(--border);
 }
+.toolbar-buttons { display: flex; gap: 10px; align-items: center; flex: 1; min-width: 0; }
 .title-input { max-width: 340px; font-weight: 600; }
 .upload-btn { cursor: pointer; }
 .save-state { margin-left: auto; font-size: 13px; white-space: nowrap; }
@@ -501,7 +526,41 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
   background: var(--bg);
 }
 .editor-preview { border-left: 1px solid var(--border); padding: 24px; overflow-y: auto; }
-.editor-empty { flex: 1; display: flex; align-items: center; justify-content: center; }
+.editor-empty { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; }
+
+/* ---------- mobile ---------- */
+@media (max-width: 860px) {
+  .editor-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 20;
+    height: 100dvh;
+    max-width: 85vw;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+  }
+  .editor-sidebar.open { transform: translateX(0); }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 19;
+    background: rgba(0, 0, 0, 0.35);
+  }
+  .sidebar-close, .sidebar-toggle { display: inline-flex; }
+  .editor-toolbar { padding: 8px 10px; row-gap: 6px; }
+  .title-input { flex: 1; min-width: 0; max-width: none; }
+  .toolbar-buttons { flex-basis: 100%; }
+  .toolbar-btn-text { display: none; }
+  /* One pane at a time: the preview toggle switches between write and read. */
+  .editor-panes { grid-template-columns: 1fr; }
+  .editor-panes:not(.single) .editor-textarea { display: none; }
+  .editor-preview { border-left: none; }
+  .editor-textarea, .editor-preview { padding: 16px; }
+  .editor-textarea { font-size: 16px; } /* prevents iOS focus zoom */
+  .icon-btn { padding: 8px; }
+}
 
 .modal-backdrop {
   position: fixed;
@@ -517,6 +576,8 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
   border-radius: var(--radius);
   padding: 24px;
   width: min(460px, 92vw);
+  max-height: 90dvh;
+  overflow-y: auto;
   display: grid;
   gap: 14px;
 }
@@ -524,7 +585,7 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
 .modal label { display: grid; gap: 4px; font-size: 14px; font-weight: 500; }
 .color-row { display: flex; align-items: center; gap: 10px; }
 .color-input { width: 44px; height: 34px; padding: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); cursor: pointer; }
-.modal-actions { display: flex; gap: 8px; margin-top: 8px; }
+.modal-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .team-hint { margin: 0; font-size: 13px; }
 .member-list { display: grid; gap: 4px; }
 .member-row { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-bottom: 1px solid var(--border); }

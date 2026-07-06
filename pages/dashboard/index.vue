@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { BookOpen, Plus, Download, LogOut } from 'lucide-vue-next'
+
 definePageMeta({ middleware: 'auth' })
 
 const { user, clear } = useUserSession()
@@ -63,11 +65,11 @@ async function logout () {
 <template>
   <div class="dash">
     <header class="dash-header">
-      <NuxtLink to="/" class="brand">📖 KnowledgeBook</NuxtLink>
+      <NuxtLink to="/" class="brand"><BookOpen :size="20" class="brand-mark" /> KnowledgeBook</NuxtLink>
       <div class="user">
         <img v-if="user?.avatar" :src="user.avatar" alt="" class="avatar">
-        <span class="muted">{{ user?.name || user?.email }}</span>
-        <button class="btn btn-sm" @click="logout">Sign out</button>
+        <span class="muted user-name">{{ user?.name || user?.email }}</span>
+        <button class="btn btn-sm" @click="logout"><LogOut :size="14" /> <span class="user-signout">Sign out</span></button>
       </div>
     </header>
 
@@ -75,8 +77,8 @@ async function logout () {
       <div class="dash-title">
         <h1>Your projects</h1>
         <div class="dash-actions">
-          <button class="btn" @click="showImport = !showImport; showCreate = false">Import from GitBook</button>
-          <button class="btn btn-primary" @click="showCreate = !showCreate; showImport = false">+ New project</button>
+          <button class="btn" @click="showImport = !showImport; showCreate = false"><Download :size="15" /> Import from GitBook</button>
+          <button class="btn btn-primary" @click="showCreate = !showCreate; showImport = false"><Plus :size="15" /> New project</button>
         </div>
       </div>
 
@@ -137,8 +139,10 @@ async function logout () {
   padding: 12px 32px;
   border-bottom: 1px solid var(--border);
 }
-.brand { font-weight: 700; color: var(--text); text-decoration: none !important; }
-.user { display: flex; align-items: center; gap: 10px; }
+.brand { font-weight: 700; color: var(--text); text-decoration: none !important; display: flex; align-items: center; gap: 8px; }
+.brand-mark { color: var(--accent); flex-shrink: 0; }
+.user { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.user-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .avatar { width: 28px; height: 28px; border-radius: 50%; }
 .dash-main { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
 .dash-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
@@ -181,4 +185,14 @@ async function logout () {
 .card-slug { font-size: 13px; }
 .card-desc { font-size: 14px; margin: 12px 0 0; }
 .empty { text-align: center; padding: 64px 0; }
+
+@media (max-width: 640px) {
+  .dash-header { padding: 10px 16px; }
+  .user-name, .user-signout { display: none; }
+  .dash-main { padding: 20px 16px; }
+  .dash-title { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .dash-actions { width: 100%; }
+  .dash-actions .btn { flex: 1; justify-content: center; }
+  .grid { grid-template-columns: 1fr; }
+}
 </style>

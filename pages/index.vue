@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { BookOpen, PenLine, Zap, Palette } from 'lucide-vue-next'
+
 const { loggedIn, user } = useUserSession()
 const authError = computed(() => Boolean(useRoute().query.auth_error))
 </script>
@@ -6,7 +8,7 @@ const authError = computed(() => Boolean(useRoute().query.auth_error))
 <template>
   <div class="landing">
     <header class="landing-header">
-      <div class="brand"><span class="brand-mark">📖</span> KnowledgeBook</div>
+      <div class="brand"><BookOpen :size="22" class="brand-mark" /> KnowledgeBook</div>
       <nav>
         <NuxtLink v-if="loggedIn" to="/dashboard" class="btn btn-primary">
           Dashboard
@@ -35,15 +37,15 @@ const authError = computed(() => Boolean(useRoute().query.auth_error))
 
       <div class="features">
         <div class="feature">
-          <h3>✍️ Full markdown</h3>
+          <h3><PenLine :size="18" class="feature-icon" /> Full markdown</h3>
           <p class="muted">Headings, tables, code blocks with syntax highlighting, images and more.</p>
         </div>
         <div class="feature">
-          <h3>⚡ Autosave</h3>
+          <h3><Zap :size="18" class="feature-icon" /> Autosave</h3>
           <p class="muted">Every keystroke is saved automatically. Never lose an edit again.</p>
         </div>
         <div class="feature">
-          <h3>🎨 Your brand</h3>
+          <h3><Palette :size="18" class="feature-icon" /> Your brand</h3>
           <p class="muted">Custom accent color, icon and description for every project.</p>
         </div>
       </div>
@@ -63,6 +65,8 @@ const authError = computed(() => Boolean(useRoute().query.auth_error))
   border-bottom: 1px solid var(--border);
 }
 .brand { font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+.brand-mark { color: var(--accent); flex-shrink: 0; }
+.feature-icon { color: var(--accent); vertical-align: -3px; margin-right: 4px; }
 .hero { flex: 1; max-width: 860px; margin: 0 auto; padding: 80px 24px; text-align: center; }
 .auth-error {
   background: #fdecea;
@@ -88,4 +92,12 @@ const authError = computed(() => Boolean(useRoute().query.auth_error))
 .feature h3 { margin: 0 0 8px; }
 .feature p { margin: 0; font-size: 14px; }
 footer { text-align: center; padding: 24px; font-size: 13px; }
+
+@media (max-width: 640px) {
+  .landing-header { padding: 12px 16px; }
+  .hero { padding: 48px 20px; }
+  .hero h1 { font-size: 30px; }
+  .hero > p { font-size: 16px; }
+  .features { margin-top: 48px; }
+}
 </style>

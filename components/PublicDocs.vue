@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ArrowLeft, ArrowRight, Pencil, Menu, X } from 'lucide-vue-next'
+
 const props = defineProps<{ projectSlug: string, pageSlug?: string }>()
 
 const { data: project, error } = await useFetch(`/api/projects/${props.projectSlug}`)
@@ -6,6 +8,7 @@ if (error.value || !project.value) {
   throw createError({ statusCode: 404, message: 'This documentation does not exist', fatal: true })
 }
 
+const navOpen = ref(false)
 const allPages = computed(() => project.value!.sections.flatMap((s: any) => s.pages))
 const activeSlug = computed(() => props.pageSlug ?? allPages.value[0]?.slug)
 
@@ -16,6 +19,8 @@ const { data: page, error: pageError } = await useFetch(
 if (props.pageSlug && pageError.value) {
   throw createError({ statusCode: 404, message: 'Page not found', fatal: true })
 }
+
+watch(activeSlug, () => { navOpen.value = false })
 
 const activeIndex = computed(() => allPages.value.findIndex((p: any) => p.slug === activeSlug.value))
 const prevPage = computed(() => allPages.value[activeIndex.value - 1])
@@ -29,7 +34,16 @@ useHead({
 
 <template>
   <div class="docs" :style="{ '--accent': project!.accentColor }">
-    <aside class="docs-sidebar">
+    <header class="docs-mobile-bar">
+      <button class="nav-toggle" :title="navOpen ? 'Close navigation' : 'Open navigation'" @click="navOpen = !navOpen">
+        <component :is="navOpen ? X : Menu" :size="20" />
+      </button>
+      <ProjectIcon :name="project!.name" :icon-url="project!.iconUrl" :size="26" />
+      <strong class="docs-mobile-title">{{ project!.name }}</strong>
+    </header>
+
+    <div v-if="navOpen" class="nav-backdrop" @click="navOpen = false" />
+    <aside class="docs-sidebar" :class="{ open: navOpen }">
       <NuxtLink :to="`/${project!.slug}`" class="docs-brand">
         <ProjectIcon :name="project!.name" :icon-url="project!.iconUrl" :size="34" />
         <div>
@@ -54,7 +68,9 @@ useHead({
       </nav>
 
       <div class="docs-footer">
-        <NuxtLink v-if="project!.isOwner" :to="`/dashboard/${project!.slug}`" class="btn btn-sm">✎ Edit</NuxtLink>
+        <NuxtLink v-if="project!.canEdit" :to="`/dashboard/${project!.slug}`" class="btn btn-sm">
+          <Pencil :size="14" /> Edit
+        </NuxtLink>
         <NuxtLink to="/" class="muted powered">Powered by KnowledgeBook</NuxtLink>
       </div>
     </aside>
@@ -64,11 +80,11 @@ useHead({
         <MarkdownView :source="page.content" />
         <div class="docs-pager">
           <NuxtLink v-if="prevPage" :to="`/${project!.slug}/${prevPage.slug}`" class="pager-link">
-            ← {{ prevPage.title }}
+            <ArrowLeft :size="15" /> {{ prevPage.title }}
           </NuxtLink>
           <span v-else />
           <NuxtLink v-if="nextPage" :to="`/${project!.slug}/${nextPage.slug}`" class="pager-link next">
-            {{ nextPage.title }} →
+            {{ nextPage.title }} <ArrowRight :size="15" />
           </NuxtLink>
         </div>
         <p class="muted updated">Last updated {{ new Date(page.updated_at + 'Z').toLocaleDateString() }}</p>
@@ -79,7 +95,8 @@ useHead({
 </template>
 
 <style scoped>
-.docs { display: flex; min-height: 100vh; }
+.docs { display: flex; min-height: 100vh; min-height: 100dvh; }
+.docs-mobile-bar, .nav-backdrop, .nav-toggle { display: none; }
 .docs-sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
@@ -90,6 +107,7 @@ useHead({
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
 }
 .docs-brand {
   display: flex;
@@ -150,6 +168,9 @@ useHead({
   max-width: 760px;
 }
 .pager-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px 18px;
@@ -160,8 +181,49 @@ useHead({
 .updated { font-size: 12px; margin-top: 24px; }
 
 @media (max-width: 760px) {
+  .docs-mobile-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 21;
+    padding: 10px 12px;
+    background: var(--bg-subtle);
+    border-bottom: 1px solid var(--border);
+  }
+  .docs-mobile-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    color: var(--text);
+  }
+  .nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 19;
+    background: rgba(0, 0, 0, 0.35);
+  }
   .docs { flex-direction: column; }
-  .docs-sidebar { width: 100%; height: auto; position: static; }
+  .docs-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 20;
+    max-width: 85vw;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+  }
+  .docs-sidebar.open { transform: translateX(0); }
   .docs-main { padding: 24px 20px; }
+  .docs-pager { flex-direction: column; }
+  .pager-link.next { justify-content: flex-end; }
 }
 </style>

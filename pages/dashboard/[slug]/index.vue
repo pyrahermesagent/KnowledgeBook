@@ -121,8 +121,6 @@ async function movePage (section: any, index: number, delta: number) {
 const editorEl = ref<HTMLTextAreaElement>()
 const imageSize = ref<'medium' | 'small' | 'large'>('medium')
 const uploading = ref(false)
-const imageSize = ref<'medium' | 'small' | 'large'>('medium')
-
 async function uploadFile (file: File): Promise<string> {
   const form = new FormData()
   form.append('file', file)

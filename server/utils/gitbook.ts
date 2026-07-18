@@ -368,7 +368,7 @@ async function fetchPageContents (pages: GitBookPageRef[]): Promise<Map<GitBookP
 async function resolveGitBookFileImages (content: string, pageUrl: string): Promise<string> {
   if (!/!\[[^\]]*\]\(\/files\//.test(content)) return content
 
-  const byAlt = new Map<string, string>()
+  const byAlt = new Map<string, { url: string, size?: string }>()
   // GitBook content-negotiates: ask for HTML explicitly or we get markdown back.
   const html = await fetchText(pageUrl, 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8')
   if (html.ok && looksLikeHtml(html.text)) {
@@ -377,7 +377,15 @@ async function resolveGitBookFileImages (content: string, pageUrl: string): Prom
       const proxied = img[0].match(/src="[^"]*[?&]url=([^&"]+)/)?.[1]
       if (!alt || !proxied) continue
       const inner = decodeURIComponent(proxied)
-      if (/\/files\/v0\//.test(inner)) byAlt.set(alt, inner)
+      if (/\/files\/v0\//.test(inner)) {
+        // Extract width class for size determination
+        const classAttr = img[0].match(/class="([^"]*)"/)?.[1] ?? ''
+        let size: string | undefined
+        if (classAttr.includes('w-150') || classAttr.includes('w-128')) size = 'small'
+        else if (classAttr.includes('w-300') || classAttr.includes('w-256')) size = 'medium'
+        else if (classAttr.includes('w-full')) size = 'large'
+        byAlt.set(alt, { url: inner, size })
+      }
     }
   }
 
@@ -385,7 +393,11 @@ async function resolveGitBookFileImages (content: string, pageUrl: string): Prom
   // internal-link rewriting (see finalizeUnresolvedFileImages).
   return content.replace(/!\[([^\]]*)\]\(\/files\/[^)\s]+\)/g, (full, alt: string) => {
     const resolved = byAlt.get(normalizeAltText(alt))
-    return resolved ? `![${alt}](${resolved})` : full
+    if (resolved) {
+      const sizePart = resolved.size ? `{size=${resolved.size}}` : ''
+      return `![${alt}](${resolved.url})${sizePart}`
+    }
+    return full
   })
 }
 
@@ -503,7 +515,25 @@ function normalizeGitBookSegment (segment: string): string {
 function imgToMarkdown (attrs: string): string {
   const src = attrs.match(/src="([^"]*)"/)?.[1] ?? ''
   const alt = attrs.match(/alt="([^"]*)"/)?.[1] ?? ''
-  return src ? `![${alt}](${src})` : ''
+  const widthClass = attrs.match(/class="[^"]*\b(w-[0-9]+|w-full|w-auto)\b[^"]*"/)?.[0]
+  const styleWidth = attrs.match(/style="[^"]*width\s*:\s*([0-9]+px|100%)"/)?.[1]
+  
+  if (!src) return ''
+  
+  // Determine size from width class or style
+  let size: 'small' | 'medium' | 'large' | null = null
+  if (widthClass) {
+    if (widthClass.includes('w-150') || widthClass.includes('w-128')) size = 'small'
+    else if (widthClass.includes('w-300') || widthClass.includes('w-256')) size = 'medium'
+    else if (widthClass.includes('w-full') || widthClass.includes('w-full')) size = 'large'
+  } else if (styleWidth) {
+    if (styleWidth.includes('150px')) size = 'small'
+    else if (styleWidth.includes('300px')) size = 'medium'
+    else if (styleWidth.includes('100%')) size = 'large'
+  }
+  
+  if (size) return `![${alt}](${src}){size=${size}}`
+  return `![${alt}](${src})`
 }
 
 /** Converts inline HTML elements to their markdown equivalents. */

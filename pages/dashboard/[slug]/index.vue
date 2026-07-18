@@ -119,8 +119,8 @@ async function movePage (section: any, index: number, delta: number) {
 
 // ---------- uploads ----------
 const editorEl = ref<HTMLTextAreaElement>()
+const imageSize = ref<'medium' | 'small' | 'large'>('medium')
 const uploading = ref(false)
-
 async function uploadFile (file: File): Promise<string> {
   const form = new FormData()
   form.append('file', file)
@@ -136,7 +136,12 @@ async function insertUpload (event: Event) {
   uploading.value = true
   try {
     const url = await uploadFile(file)
-    const snippet = file.type.startsWith('image/') ? `![${file.name}](${url})` : `[${file.name}](${url})`
+    let snippet: string
+    if (file.type.startsWith('image/')) {
+      snippet = `![${file.name}](${url}){size=${imageSize.value}}`
+    } else {
+      snippet = `[${file.name}](${url})`
+    }
     const el = editorEl.value
     if (el) {
       const pos = el.selectionStart ?? pageContent.value.length
@@ -313,6 +318,11 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
               <Paperclip :size="15" /> {{ uploading ? 'Uploading…' : 'Insert file' }}
               <input type="file" hidden :disabled="uploading" @change="insertUpload">
             </label>
+            <select v-model="imageSize" class="select-size" title="Image size">
+              <option value="small">Small</option>
+              <option value="medium" selected>Medium</option>
+              <option value="large">Large</option>
+            </select>
             <button class="btn btn-sm" @click="showPreview = !showPreview">
               <component :is="showPreview ? EyeOff : Eye" :size="15" />
               <span class="toolbar-btn-text">{{ showPreview ? 'Hide preview' : 'Preview' }}</span>
@@ -510,6 +520,7 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
 .toolbar-buttons { display: flex; gap: 10px; align-items: center; flex: 1; min-width: 0; }
 .title-input { max-width: 340px; font-weight: 600; }
 .upload-btn { cursor: pointer; }
+.select-size { padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 14px; cursor: pointer; outline: none; }
 .save-state { margin-left: auto; font-size: 13px; white-space: nowrap; }
 .save-state.saved { color: #27ae60; }
 .save-state.error { color: #c0392b; }

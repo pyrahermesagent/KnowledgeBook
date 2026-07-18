@@ -180,6 +180,27 @@ useHead({
 .pager-link:hover { border-color: var(--accent); }
 .updated { font-size: 12px; margin-top: 24px; }
 
+/* Image sizes - GitBook-inspired sizing */
+.image-size-small {
+  width: 150px;
+  height: auto;
+  display: block;
+  margin: 0 auto 16px;
+}
+.image-size-medium {
+  width: 300px;
+  height: auto;
+  display: block;
+  margin: 0 auto 16px;
+}
+.image-size-large {
+  width: 100%;
+  max-width: 800px;
+  height: auto;
+  display: block;
+  margin: 0 auto 16px;
+}
+
 @media (max-width: 760px) {
   .docs-mobile-bar {
     display: flex;

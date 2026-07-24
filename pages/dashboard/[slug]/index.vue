@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
   ArrowLeft, ExternalLink, Plus, Pencil, Trash2, ChevronUp, ChevronDown,
-  Users, Settings, Paperclip, Eye, EyeOff, Menu, X
+  Users, Settings, Paperclip, Eye, EyeOff, Menu, X, Palette
 } from 'lucide-vue-next'
 
 definePageMeta({ middleware: 'auth' })
@@ -161,6 +161,10 @@ const showSettings = ref(false)
 const settings = reactive({ name: '', description: '', accentColor: '#346ddb', iconUrl: '' })
 const savingSettings = ref(false)
 
+const showTheme = ref(false)
+const theme = reactive({ accentColor: '#346ddb', fontFamily: '', bgColor: '#ffffff', textColor: '#1f2430', borderColor: '#e5e8ec', radius: 8 })
+const savingTheme = ref(false)
+
 function openSettings () {
   settings.name = project.value!.name
   settings.description = project.value!.description
@@ -169,10 +173,33 @@ function openSettings () {
   showSettings.value = true
 }
 
+function openTheme () {
+  theme.accentColor = project.value!.accentColor
+  theme.fontFamily = project.value!.fontFamily
+  theme.bgColor = project.value!.bgColor
+  theme.textColor = project.value!.textColor
+  theme.borderColor = project.value!.borderColor
+  theme.radius = project.value!.radius
+  showTheme.value = true
+}
+
 async function uploadIcon (event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
   settings.iconUrl = await uploadFile(file)
+}
+
+async function saveTheme () {
+  savingTheme.value = true
+  try {
+    await $fetch(`/api/projects/${slug}/theme`, { method: 'PATCH', body: { ...theme } })
+    showTheme.value = false
+    await refreshTree()
+  } catch (e: any) {
+    alert(e.data?.message ?? 'Failed to save theme')
+  } finally {
+    savingTheme.value = false
+  }
 }
 
 async function saveSettings () {
@@ -305,6 +332,7 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
       <div class="sidebar-bottom">
         <button class="btn btn-sm" @click="openTeam"><Users :size="15" /> Team</button>
         <button class="btn btn-sm" @click="openSettings"><Settings :size="15" /> Settings</button>
+        <button class="btn btn-sm" @click="openTheme"><Palette :size="15" /> Theme</button>
       </div>
     </aside>
 
@@ -380,6 +408,52 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
           <button class="btn" @click="showSettings = false">Cancel</button>
           <button class="btn btn-primary" :disabled="savingSettings" @click="saveSettings">
             {{ savingSettings ? 'Saving…' : 'Save' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showTheme" class="modal-backdrop" @click.self="showTheme = false">
+      <div class="modal">
+        <h2>Theme Settings</h2>
+        <label>Accent Color
+          <span class="color-row">
+            <input v-model="theme.accentColor" type="color" class="color-input">
+            <input v-model="theme.accentColor" class="input" style="max-width: 120px">
+          </span>
+        </label>
+        <label>Font Family
+          <select v-model="theme.fontFamily" class="input select-font">
+            <option value="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, sans-serif">System Sans (Default)</option>
+            <option value="Georgia, serif">Georgia (Serif)</option>
+            <option value="'Courier New', Courier, monospace">Courier (Mono)</option>
+            <option value="Arial, sans-serif">Arial</option>
+            <option value="'Times New Roman', Times, serif">Times New Roman</option>
+            <option value="Verdana, sans-serif">Verdana</option>
+            <option value="system-ui, -apple-system, sans-serif">System UI</option>
+          </select>
+        </label>
+        <label>Background Color
+          <span class="color-row">
+            <input v-model="theme.bgColor" type="color" class="color-input">
+            <input v-model="theme.bgColor" class="input" style="max-width: 120px">
+          </span>
+        </label>
+        <label>Text Color
+          <span class="color-row">
+            <input v-model="theme.textColor" type="color" class="color-input">
+            <input v-model="theme.textColor" class="input" style="max-width: 120px">
+          </span>
+        </label>
+        <label>Border Radius
+          <input type="range" v-model.number="theme.radius" min="0" max="20" class="input input-range">
+          <span class="range-value">{{ theme.radius }}px</span>
+        </label>
+        <div class="modal-actions">
+          <span style="flex: 1" />
+          <button class="btn" @click="showTheme = false">Cancel</button>
+          <button class="btn btn-primary" :disabled="savingTheme" @click="saveTheme">
+            {{ savingTheme ? 'Saving…' : 'Save' }}
           </button>
         </div>
       </div>
@@ -594,9 +668,14 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
 }
 .modal h2 { margin: 0; }
 .modal label { display: grid; gap: 4px; font-size: 14px; font-weight: 500; }
+.modal label:has(select) { gap: 8px; }
+.range-value { font-size: 13px; color: var(--text-muted); }
 .color-row { display: flex; align-items: center; gap: 10px; }
 .color-input { width: 44px; height: 34px; padding: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); cursor: pointer; }
+.input-range { flex: 1; }
+.select-font { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 14px; }
 .modal-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.theme-modal-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .team-hint { margin: 0; font-size: 13px; }
 .member-list { display: grid; gap: 4px; }
 .member-row { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-bottom: 1px solid var(--border); }

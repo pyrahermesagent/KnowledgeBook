@@ -1,0 +1,824 @@
+openapi: 3.0.3
+info:
+  title: KnowledgeBook API
+  description: REST API for the KnowledgeBook documentation platform
+  version: 1.0.0
+  contact:
+    name: KnowledgeBook Team
+    email: team@knowledgebook.app
+
+servers:
+  - url: https://knowledgebook.app
+    description: Production server
+  - url: http://localhost:3000
+    description: Development server
+
+paths:
+  # Projects
+  /api/projects:
+    get:
+      summary: List all projects
+      operationId: listProjects
+      tags:
+        - Projects
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Project'
+    
+    post:
+      summary: Create a new project
+      operationId: createProject
+      tags:
+        - Projects
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+
+  /api/projects/{slug}:
+    get:
+      summary: Get project by slug
+      operationId: getProject
+      tags:
+        - Projects
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+    
+    patch:
+      summary: Update project
+      operationId: updateProject
+      tags:
+        - Projects
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectRequest'
+      responses:
+        '200':
+          description: Project updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+    
+    delete:
+      summary: Delete project
+      operationId: deleteProject
+      tags:
+        - Projects
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Project deleted
+
+  # Sections
+  /api/projects/{projectSlug}/sections:
+    get:
+      summary: List sections for a project
+      operationId: listSections
+      tags:
+        - Sections
+      parameters:
+        - name: projectSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of sections
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sections:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Section'
+    
+    post:
+      summary: Create a new section
+      operationId: createSection
+      tags:
+        - Sections
+      parameters:
+        - name: projectSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSectionRequest'
+      responses:
+        '201':
+          description: Section created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+
+  /api/sections/{id}:
+    patch:
+      summary: Update section order
+      operationId: updateSection
+      tags:
+        - Sections
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                position:
+                  type: integer
+      responses:
+        '200':
+          description: Section updated
+    
+    delete:
+      summary: Delete section
+      operationId: deleteSection
+      tags:
+        - Sections
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Section deleted
+
+  # Pages
+  /api/projects/{projectSlug}/pages:
+    get:
+      summary: List pages for a project
+      operationId: listPages
+      tags:
+        - Pages
+      parameters:
+        - name: projectSlug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sectionId
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of pages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Page'
+    
+    post:
+      summary: Create a new page
+      operationId: createPage
+      tags:
+        - Pages
+      parameters:
+        - name: projectSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePageRequest'
+      responses:
+        '201':
+          description: Page created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+
+  /api/pages/{id}:
+    get:
+      summary: Get page by ID
+      operationId: getPage
+      tags:
+        - Pages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Page details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+    
+    patch:
+      summary: Update page
+      operationId: updatePage
+      tags:
+        - Pages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePageRequest'
+      responses:
+        '200':
+          description: Page updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+    
+    delete:
+      summary: Delete page
+      operationId: deletePage
+      tags:
+        - Pages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Page deleted
+
+  # Themes
+  /api/themes:
+    get:
+      summary: List all themes
+      operationId: listThemes
+      tags:
+        - Themes
+      responses:
+        '200':
+          description: List of themes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  themes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Theme'
+    
+    post:
+      summary: Create a new theme
+      operationId: createTheme
+      tags:
+        - Themes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateThemeRequest'
+      responses:
+        '201':
+          description: Theme created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Theme'
+
+  /api/themes/{id}:
+    get:
+      summary: Get theme by ID
+      operationId: getTheme
+      tags:
+        - Themes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Theme details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Theme'
+    
+    patch:
+      summary: Update theme
+      operationId: updateTheme
+      tags:
+        - Themes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateThemeRequest'
+      responses:
+        '200':
+          description: Theme updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Theme'
+    
+    delete:
+      summary: Delete theme
+      operationId: deleteTheme
+      tags:
+        - Themes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Theme deleted
+
+  /api/projects/{projectSlug}/theme:
+    get:
+      summary: Get effective theme for a project
+      operationId: getProjectTheme
+      tags:
+        - Themes
+      parameters:
+        - name: projectSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Effective theme
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Theme'
+    
+    post:
+      summary: Apply theme to project
+      operationId: applyTheme
+      tags:
+        - Themes
+      parameters:
+        - name: projectSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                themeId:
+                  type: string
+      responses:
+        '200':
+          description: Theme applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Theme'
+
+  # Uploads
+  /api/upload:
+    post:
+      summary: Upload a file
+      operationId: uploadFile
+      tags:
+        - Uploads
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                projectSlug:
+                  type: string
+      responses:
+        '201':
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  key:
+                    type: string
+                  size:
+                    type: integer
+
+  # Auth
+  /api/auth/google:
+    get:
+      summary: Google OAuth callback
+      operationId: googleOAuth
+      tags:
+        - Auth
+      responses:
+        '302':
+          description: Redirect to home
+
+  /api/auth/session:
+    get:
+      summary: Get current session
+      operationId: getSession
+      tags:
+        - Auth
+      responses:
+        '200':
+          description: Session info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  projectId:
+                    type: integer
+    delete:
+      summary: Logout
+      operationId: logout
+      tags:
+        - Auth
+      responses:
+        '204':
+          description: Logged out
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+
+  schemas:
+    Project:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        accentColor:
+          type: string
+        icon:
+          type: string
+        themeId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    
+    CreateProjectRequest:
+      type: object
+      required:
+        - name
+        - slug
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        accentColor:
+          type: string
+        icon:
+          type: string
+    
+    UpdateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        accentColor:
+          type: string
+        icon:
+          type: string
+    
+    Section:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        title:
+          type: string
+        slug:
+          type: string
+        position:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+    
+    CreateSectionRequest:
+      type: object
+      required:
+        - title
+        - position
+      properties:
+        title:
+          type: string
+        slug:
+          type: string
+        position:
+          type: integer
+    
+    Page:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        sectionId:
+          type: integer
+        title:
+          type: string
+        slug:
+          type: string
+        content:
+          type: string
+        position:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    
+    CreatePageRequest:
+      type: object
+      required:
+        - title
+        - content
+      properties:
+        title:
+          type: string
+        slug:
+          type: string
+        content:
+          type: string
+        sectionId:
+          type: integer
+        position:
+          type: integer
+    
+    UpdatePageRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        sectionId:
+          type: integer
+        position:
+          type: integer
+    
+    Theme:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        type:
+          type: string
+          enum: [system, project]
+        parentId:
+          type: string
+        colors:
+          $ref: '#/components/schemas/ColorPalette'
+        typography:
+          $ref: '#/components/schemas/TypographyConfig'
+        layout:
+          $ref: '#/components/schemas/LayoutConfig'
+        spacing:
+          $ref: '#/components/schemas/SpacingConfig'
+        isDefault:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    
+    CreateThemeRequest:
+      type: object
+      required:
+        - name
+        - colors
+      properties:
+        name:
+          type: string
+        colors:
+          $ref: '#/components/schemas/ColorPalette'
+        typography:
+          $ref: '#/components/schemas/TypographyConfig'
+        layout:
+          $ref: '#/components/schemas/LayoutConfig'
+        spacing:
+          $ref: '#/components/schemas/SpacingConfig'
+    
+    UpdateThemeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        colors:
+          $ref: '#/components/schemas/ColorPalette'
+        typography:
+          $ref: '#/components/schemas/TypographyConfig'
+        layout:
+          $ref: '#/components/schemas/LayoutConfig'
+        spacing:
+          $ref: '#/components/schemas/SpacingConfig'
+    
+    ColorPalette:
+      type: object
+      properties:
+        primary:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+        primaryHover:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+        secondary:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+        secondaryHover:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+        accent:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+        background:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+        border:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+        text:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+    
+    TypographyConfig:
+      type: object
+      properties:
+        fontFamily:
+          type: string
+        fontSize:
+          type: integer
+        lineHeight:
+          type: number
+        headingScale:
+          type: array
+          items:
+            type: number
+    
+    LayoutConfig:
+      type: object
+      properties:
+        sidebarWidth:
+          type: integer
+        sidebarPosition:
+          type: string
+          enum: [left, right, top]
+        headerHeight:
+          type: integer
+        footerVisible:
+          type: boolean
+    
+    SpacingConfig:
+      type: object
+      properties:
+        unit:
+          type: integer
+        scale:
+          type: string
+          enum: [compact, normal, spacious]
+    
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        avatar:
+          type: string

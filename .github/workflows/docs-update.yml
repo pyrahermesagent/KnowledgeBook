@@ -1,0 +1,119 @@
+name: Documentation Updates
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'docs/**'
+      - 'README.md'
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - 'docs/**'
+      - 'README.md'
+  workflow_dispatch:
+    inputs:
+      project:
+        description: 'Documentation project to update (leave empty for all)'
+        required: false
+        default: ''
+
+env:
+  DOCS_DIR: docs
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      docs_changed: ${{ steps.changes.outputs.docs_changed }}
+      readme_changed: ${{ steps.changes.outputs.readme_changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for documentation changes
+        id: changes
+        run: |
+          # Get the list of changed files between HEAD~1 and HEAD
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          
+          # Check if any docs or README files changed
+          DOCS_CHANGED=false
+          README_CHANGED=false
+          
+          for file in $CHANGED_FILES; do
+            if [[ "$file" == docs/* ]] || [[ "$file" == docs ]]; then
+              DOCS_CHANGED=true
+            fi
+            if [[ "$file" == README.md ]]; then
+              README_CHANGED=true
+            fi
+          done
+          
+          echo "docs_changed=$DOCS_CHANGED" >> $GITHUB_OUTPUT
+          echo "readme_changed=$README_CHANGED" >> $GITHUB_OUTPUT
+          
+          echo "Docs changed: $DOCS_CHANGED"
+          echo "Readme changed: $README_CHANGED"
+
+  update-gitbook:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.docs_changed == 'true' || needs.detect-changes.outputs.readme_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build documentation
+        run: npm run build
+
+      - name: Upload documentation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: docs/
+          retention-days: 7
+
+  notify-docs-team:
+    needs: update-gitbook
+    if: always() && (needs.update-gitbook.result == 'success' || needs.update-gitbook.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send notification
+        run: |
+          echo "Documentation update completed"
+          echo "Docs changed: ${{ needs.detect-changes.outputs.docs_changed }}"
+          echo "Readme changed: ${{ needs.detect-changes.outputs.readme_changed }}"
+          echo "Build status: ${{ needs.update-gitbook.result }}"
+
+  update-documentation-platform:
+    needs: [detect-changes, update-gitbook]
+    if: needs.detect-changes.outputs.docs_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy documentation to platform
+        run: |
+          echo "Documentation changes detected in docs/"
+          echo "Triggering platform documentation update..."
+          
+          # This job would integrate with your documentation platform API
+          # For now, it serves as a placeholder for future implementation
+          
+          # Possible integrations:
+          # - GitBook API: Sync markdown files
+          # - Confluence API: Update pages
+          # - Static site generator: Build and deploy
+          # - Custom API: Notify your documentation system

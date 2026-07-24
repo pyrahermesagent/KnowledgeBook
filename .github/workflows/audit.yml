@@ -1,0 +1,85 @@
+name: Audit & Lint
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run security audit
+        run: npm audit --audit-level=moderate
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Semgrep security scan
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: p/security-audit
+
+  code-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Prettier check
+        run: npm run format
+
+  performance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v3
+        with:
+          urls: |
+            https://knowledgebook.plutolabs.app
+          uploadArtifacts: true
+          temporaryGoogleLogin: true
+          assert: |
+            {
+              "lighthouseRating/overall": [">=0.8", { "ignoreViolation": true }],
+              "lighthouseRating/performance": [">=0.8", { "ignoreViolation": true }],
+              "lighthouseRating/seo": [">=0.9", { "ignoreViolation": true }],
+              "lighthouseRating/accessible": [">=0.9", { "ignoreViolation": true }],
+              "lighthouseRating/best-practices": [">=0.9", { "ignoreViolation": true }]
+            }

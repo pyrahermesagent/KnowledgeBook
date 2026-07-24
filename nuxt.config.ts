@@ -11,17 +11,22 @@ export default defineNuxtConfig({
       bucket: '',
       accessKey: '',
       secretKey: '',
-      publicUrl: ''
+      publicUrl: '',
     },
-    uploadsDir: '.data/uploads'
+    uploadsDir: '.data/uploads',
+    // Web3 RPC URLs
+    ethRpcUrl: '',
+    polygonRpcUrl: '',
+    arbitrumRpcUrl: '',
+    baseRpcUrl: '',
   },
   app: {
     head: {
       title: 'KnowledgeBook',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'description', content: 'Create beautiful documentation and guides.' }
-      ]
-    }
-  }
-})
+        { name: 'description', content: 'Create beautiful documentation and guides.' },
+      ],
+    },
+  },
+});

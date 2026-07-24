@@ -1,0 +1,273 @@
+/* Professional Print Theme for KnowledgeBook PDF Export */
+/* Corporate style with company branding and advanced formatting */
+
+/* Base styles */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.6;
+  color: #1f2430;
+  background: #fff;
+  margin: 0;
+  padding: 0;
+}
+
+/* Document structure */
+.pdf-document {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header - professional */
+.document-header {
+  background: linear-gradient(135deg, #1f2430 0%, #346ddb 100%);
+  color: #fff;
+  padding: 30px;
+  margin: -20px -20px 30px -20px;
+}
+
+.document-title {
+  font-size: 28pt;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 10px 0;
+  letter-spacing: -0.5pt;
+}
+
+.document-description {
+  font-size: 11pt;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+}
+
+/* Table of Contents - professional */
+.print-toc {
+  page-break-before: always;
+  page-break-after: always;
+  margin-bottom: 40px;
+}
+
+.toc-title {
+  font-size: 18pt;
+  font-weight: 700;
+  color: #1f2430;
+  margin: 0 0 25px 0;
+  border-bottom: 2px solid #346ddb;
+  padding-bottom: 12px;
+  letter-spacing: -0.5pt;
+}
+
+.toc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.toc-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.toc-level-1 {
+  font-weight: 600;
+  padding-left: 0;
+  font-size: 12pt;
+}
+
+.toc-level-2 {
+  padding-left: 25px;
+  font-size: 10pt;
+  color: #6b7280;
+}
+
+.toc-page {
+  padding: 4px 0;
+}
+
+/* Document content */
+.document-content {
+  page-break-before: always;
+}
+
+.pdf-page {
+  page-break-before: always;
+  margin-bottom: 40px;
+  background: #fff;
+  padding: 25px;
+  border-radius: 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.page-title {
+  font-size: 20pt;
+  font-weight: 700;
+  color: #1f2430;
+  margin: 0 0 25px 0;
+  page-break-after: avoid;
+  border-bottom: 2px solid #346ddb;
+  padding-bottom: 10px;
+}
+
+.page-content {
+  font-size: 11pt;
+  line-height: 1.6;
+  color: #1f2430;
+  margin-bottom: 20px;
+}
+
+.page-content h1 {
+  font-size: 16pt;
+  font-weight: 700;
+  margin: 25px 0 12px 0;
+  page-break-after: avoid;
+  color: #346ddb;
+}
+
+.page-content h2 {
+  font-size: 14pt;
+  font-weight: 600;
+  margin: 20px 0 10px 0;
+  page-break-after: avoid;
+  color: #1f2430;
+}
+
+.page-content h3 {
+  font-size: 12pt;
+  font-weight: 600;
+  margin: 15px 0 8px 0;
+  page-break-after: avoid;
+  color: #1f2430;
+}
+
+.page-content p {
+  margin: 12px 0;
+  text-align: justify;
+}
+
+.page-content ul,
+.page-content ol {
+  margin: 12px 0 12px 35px;
+}
+
+.page-content li {
+  margin: 6px 0;
+}
+
+.page-content blockquote {
+  border-left: 5px solid #346ddb;
+  padding: 15px 25px;
+  margin: 20px 0;
+  background: #f7f8fa;
+  border-radius: 0 5px 5px 0;
+}
+
+.page-content code {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 9pt;
+  background: #eef2ff;
+  padding: 3px 7px;
+  border-radius: 3px;
+  color: #346ddb;
+}
+
+.page-content pre {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 9pt;
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 15px;
+  border-radius: 5px;
+  overflow-x: auto;
+  margin: 15px 0;
+}
+
+.page-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 15px 0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.page-content table th,
+.page-content table td {
+  border: 1px solid #e5e8ec;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.page-content table th {
+  background: #346ddb;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Page footer - professional */
+.page-footer {
+  font-size: 9pt;
+  color: #6b7280;
+  border-top: 1px solid #e5e8ec;
+  padding-top: 10px;
+  margin-top: 25px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.page-section {
+  margin-right: 20px;
+}
+
+/* Document footer - professional */
+.document-footer {
+  page-break-before: always;
+  text-align: center;
+  padding: 25px 0;
+  border-top: 2px solid #346ddb;
+  margin-top: 40px;
+}
+
+.document-meta {
+  font-size: 9pt;
+  color: #6b7280;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+}
+
+/* Print-specific adjustments */
+@media print {
+  @page {
+    size: A4;
+    margin: 20mm;
+  }
+
+  .pdf-page {
+    break-before: page;
+    box-shadow: none;
+    border: 1px solid #e5e8ec;
+  }
+
+  .document-header {
+    background: none;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* Print-optimized settings */
+.print-backgrounds {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}

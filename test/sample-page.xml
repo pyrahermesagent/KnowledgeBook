@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<page>
+  <title>Sample Confluence Page</title>
+  <content>
+    <p>This is a sample Confluence page with various macros.</p>
+    
+    <h1>Code Example</h1>
+    <ac:structured-macro ac:name="code">
+      <ac:parameter ac:name="language">javascript</ac:parameter>
+      <ac:parameter ac:name="linenumbers">true</ac:parameter>
+      <ac:plain-text-body><![CDATA[function hello() {
+  console.log("Hello, World!");
+}
+hello();]]></ac:plain-text-body>
+    </ac:structured-macro>
+    
+    <h1>Information Panel</h1>
+    <ac:structured-macro ac:name="info">
+      <ac:parameter ac:name="title">Note</ac:parameter>
+      <ac:plain-text-body><![CDATA[This is an important note about the content.]]></ac:plain-text-body>
+    </ac:structured-macro>
+    
+    <h1>Warning Panel</h1>
+    <ac:structured-macro ac:name="warning">
+      <ac:parameter ac:name="title">Caution</ac:parameter>
+      <ac:plain-text-body><![CDATA[Be careful when making changes!]]></ac:plain-text-body>
+    </ac:structured-macro>
+    
+    <h1>Expandable Section</h1>
+    <ac:structured-macro ac:name="expand">
+      <ac:parameter ac:name="title">Click to expand</ac:parameter>
+      <ac:plain-text-body><![CDATA[This content is hidden by default.]]></ac:plain-text-body>
+    </ac:structured-macro>
+    
+    <h1>Table</h1>
+    <ac:structured-macro ac:name="table">
+      <ac:parameter ac:name="border">true</ac:parameter>
+      <ac:rich-text-body>
+        <table>
+          <tr>
+            <th>Column 1</th>
+            <th>Column 2</th>
+          </tr>
+          <tr>
+            <td>Row 1, Cell 1</td>
+            <td>Row 1, Cell 2</td>
+          </tr>
+          <tr>
+            <td>Row 2, Cell 1</td>
+            <td>Row 2, Cell 2</td>
+          </tr>
+        </table>
+      </ac:rich-text-body>
+    </ac:structured-macro>
+  </content>
+  <version>
+    <versionNumber>3</versionNumber>
+    <created>2024-01-15T10:30:00.000Z</created>
+    <lastModified>2024-01-20T14:45:00.000Z</lastModified>
+  </version>
+</page>

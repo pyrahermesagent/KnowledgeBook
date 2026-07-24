@@ -1,0 +1,245 @@
+/* Default Print Theme for KnowledgeBook PDF Export */
+/* Provides a balanced layout with headers, TOC, and clean typography */
+
+/* Base reset and styles */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.6;
+  color: #1f2430;
+  background: #fff;
+  margin: 0;
+  padding: 0;
+}
+
+/* Document structure */
+.pdf-document {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header styles */
+.document-header {
+  border-bottom: 2px solid #346ddb;
+  padding-bottom: 20px;
+  margin-bottom: 30px;
+}
+
+.document-title {
+  font-size: 24pt;
+  font-weight: 700;
+  color: #1f2430;
+  margin: 0 0 10px 0;
+}
+
+.document-description {
+  font-size: 10pt;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Table of Contents */
+.print-toc {
+  page-break-before: always;
+  page-break-after: always;
+  margin-bottom: 40px;
+}
+
+.toc-title {
+  font-size: 16pt;
+  font-weight: 700;
+  color: #1f2430;
+  margin: 0 0 20px 0;
+  border-bottom: 1px solid #e5e8ec;
+  padding-bottom: 10px;
+}
+
+.toc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.toc-item {
+  padding: 5px 0;
+}
+
+.toc-level-1 {
+  font-weight: 600;
+  padding-left: 0;
+}
+
+.toc-level-2 {
+  padding-left: 20px;
+  font-size: 9pt;
+}
+
+.toc-page {
+  padding: 3px 0;
+}
+
+/* Document content */
+.document-content {
+  page-break-before: always;
+}
+
+.pdf-page {
+  page-break-before: always;
+  margin-bottom: 40px;
+}
+
+.page-title {
+  font-size: 18pt;
+  font-weight: 700;
+  color: #1f2430;
+  margin: 0 0 20px 0;
+  page-break-after: avoid;
+}
+
+.page-content {
+  font-size: 11pt;
+  line-height: 1.6;
+  color: #1f2430;
+  margin-bottom: 20px;
+}
+
+.page-content h1 {
+  font-size: 16pt;
+  font-weight: 700;
+  margin: 20px 0 10px 0;
+  page-break-after: avoid;
+}
+
+.page-content h2 {
+  font-size: 14pt;
+  font-weight: 600;
+  margin: 15px 0 8px 0;
+  page-break-after: avoid;
+}
+
+.page-content h3 {
+  font-size: 12pt;
+  font-weight: 600;
+  margin: 12px 0 6px 0;
+  page-break-after: avoid;
+}
+
+.page-content p {
+  margin: 10px 0;
+}
+
+.page-content ul,
+.page-content ol {
+  margin: 10px 0 10px 30px;
+}
+
+.page-content li {
+  margin: 5px 0;
+}
+
+.page-content blockquote {
+  border-left: 4px solid #346ddb;
+  padding: 10px 20px;
+  margin: 15px 0;
+  background: #f7f8fa;
+}
+
+.page-content code {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 9pt;
+  background: #f7f8fa;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.page-content pre {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 9pt;
+  background: #f7f8fa;
+  padding: 15px;
+  border-radius: 5px;
+  overflow-x: auto;
+  margin: 15px 0;
+}
+
+.page-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 15px 0;
+}
+
+.page-content table th,
+.page-content table td {
+  border: 1px solid #e5e8ec;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.page-content table th {
+  background: #f7f8fa;
+  font-weight: 600;
+}
+
+/* Page footer */
+.page-footer {
+  font-size: 9pt;
+  color: #6b7280;
+  border-top: 1px solid #e5e8ec;
+  padding-top: 10px;
+  margin-top: 20px;
+}
+
+.page-section {
+  margin-right: 20px;
+}
+
+/* Document footer */
+.document-footer {
+  page-break-before: always;
+  text-align: center;
+  padding: 20px 0;
+  border-top: 1px solid #e5e8ec;
+}
+
+.document-meta {
+  font-size: 9pt;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Print-specific adjustments */
+@media print {
+  @page {
+    size: A4;
+    margin: 20mm;
+  }
+
+  .pdf-page {
+    break-before: page;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 800px) {
+  .pdf-document {
+    padding: 10px;
+  }
+  
+  .document-title {
+    font-size: 18pt;
+  }
+  
+  .page-content {
+    font-size: 10pt;
+  }
+}

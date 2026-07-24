@@ -20,6 +20,13 @@ export interface ProjectRow {
   description: string
   accent_color: string
   icon_url: string
+  font_family: string
+  bg_color: string
+  bg_subtle: string
+  text_color: string
+  'text-muted': string
+  border_color: string
+  radius: number
   created_at: string
   updated_at: string
 }

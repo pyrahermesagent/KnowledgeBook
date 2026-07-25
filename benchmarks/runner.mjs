@@ -7,7 +7,8 @@ export async function runBenchmarks(config) {
     latency: {},
     throughput: {},
     memory: {},
-    regressions: [] as string[],
+    /** @type {string[]} */
+    regressions: [],
   }
 
   // TODO: Parse results from benchmark runs

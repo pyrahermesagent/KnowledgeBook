@@ -1,11 +1,16 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import fs from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import Database from 'better-sqlite3';
 
 describe('MCP Integration Tests', () => {
-  const testDbPath = '/home/rosta/knowledgebook/.data/knowledgebook-test.db';
+  // Was an absolute path from one developer's machine, which made this suite
+  // unrunnable anywhere else.
+  const testDbPath = join(tmpdir(), 'knowledgebook-test.db');
   let db: any;
 
   beforeAll(() => {
-    const fs = require('fs');
     // Clean up any existing database
     if (fs.existsSync(testDbPath)) {
       fs.unlinkSync(testDbPath);
@@ -17,7 +22,7 @@ describe('MCP Integration Tests', () => {
       fs.unlinkSync(testDbPath + '-shm');
     }
 
-    db = require('better-sqlite3')(testDbPath);
+    db = new Database(testDbPath);
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
     db.exec(`
@@ -118,7 +123,6 @@ describe('MCP Integration Tests', () => {
 
   afterAll(() => {
     if (db) db.close();
-    const fs = require('fs');
     try {
       fs.unlinkSync(testDbPath);
     } catch {}

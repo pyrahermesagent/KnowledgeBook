@@ -3,7 +3,7 @@
 
 import { defineEventHandler, readBody } from 'h3';
 import { parseConfluenceExportDirectory, handleConfluenceImport, ConfluenceImportError, validateConfluenceStructure } from '~/server/utils/confluence';
-import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, readdirSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 import { tmpdir } from 'os';
 
@@ -86,18 +86,15 @@ function parseConfluenceExportDirectory(exportPath: string): any {
 
 // Get all XML files from directory
 function getXmlFiles(directoryPath: string): string[] {
-  const fs = require('fs');
-  const path = require('path');
-  
   const result: string[] = [];
-  
+
   function scan(dir: string) {
-    const files = fs.readdirSync(dir);
-    
+    const files = readdirSync(dir);
+
     for (const file of files) {
-      const fullPath = path.join(dir, file);
-      const stat = fs.statSync(fullPath);
-      
+      const fullPath = join(dir, file);
+      const stat = statSync(fullPath);
+
       if (stat.isDirectory()) {
         scan(fullPath);
       } else if (file.toLowerCase().endsWith('.xml')) {

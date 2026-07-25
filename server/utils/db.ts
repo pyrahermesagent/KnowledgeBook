@@ -26,11 +26,11 @@ export function useDb(): Database.Database {
   const dir = dirname(path);
   mkdirSync(dir, { recursive: true });
 
-  // better-sqlite3 uses shared cache by default when using same path
-  // We configure pragmas for optimal performance
+  // better-sqlite3 is synchronous and single-connection; concurrency comes from
+  // the WAL pragmas below rather than a connection cache. (`cache: 'shared'` is
+  // not a better-sqlite3 option and was silently ignored.)
   dbPool = new Database(path, {
     fileMustExist: false,
-    cache: 'shared', // Enable shared cache for better multi-threading
   });
 
   // Configure WAL mode for better concurrency
@@ -190,7 +190,64 @@ function initSchema(db: Database.Database): void {
       revoked_at      TEXT,
       UNIQUE (user_id, project_id)
     );
+    -- NFT-based project ownership
+    CREATE TABLE IF NOT EXISTS nft_project_ownership (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id      INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      nft_contract    TEXT NOT NULL,
+      nft_token_id    TEXT NOT NULL,
+      network         TEXT NOT NULL DEFAULT 'ethereum',
+      owner_address   TEXT NOT NULL,
+      granted_at      TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (project_id, nft_contract)
+    );
   `);
+
+  // Columns added after the initial release. CREATE TABLE IF NOT EXISTS does
+  // not touch tables that already exist, so these are applied separately for
+  // databases created before the wallet and encryption features landed.
+  ensureColumn(db, 'projects', 'owner_wallet_address', 'TEXT');
+  ensureColumn(db, 'pages', 'encrypted_content', 'TEXT');
+  ensureColumn(db, 'pages', 'encryption_iv', 'TEXT');
+  ensureColumn(db, 'pages', 'encryption_key_id', 'TEXT');
+  ensureColumn(db, 'pages', 'content_hash', 'TEXT');
+  ensureColumn(db, 'pages', 'is_encrypted', 'INTEGER NOT NULL DEFAULT 0');
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_projects_slug ON projects (slug);
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
+    CREATE INDEX IF NOT EXISTS idx_pages_slug ON pages (project_id, slug);
+    CREATE INDEX IF NOT EXISTS idx_pages_encrypted ON pages (project_id, is_encrypted);
+    CREATE INDEX IF NOT EXISTS idx_sections_order ON sections (project_id, position);
+    CREATE INDEX IF NOT EXISTS idx_encryption_keys_project ON encryption_keys (project_id);
+    CREATE INDEX IF NOT EXISTS idx_encryption_keys_updated ON encryption_keys (updated_at);
+    CREATE INDEX IF NOT EXISTS idx_user_encryption_access_user ON user_encryption_access (user_id, project_id);
+    CREATE INDEX IF NOT EXISTS idx_wallet_users_address ON wallet_users (wallet_address);
+    CREATE INDEX IF NOT EXISTS idx_wallet_project_access ON wallet_project_members (wallet_address, project_id);
+    CREATE INDEX IF NOT EXISTS idx_token_gated_project ON token_gated_projects (project_id, token_contract);
+    CREATE INDEX IF NOT EXISTS idx_nft_ownership_owner ON nft_project_ownership (owner_address);
+    CREATE INDEX IF NOT EXISTS idx_nft_ownership_project ON nft_project_ownership (project_id);
+  `);
+}
+
+/**
+ * Add a column to an existing table if it is not already present.
+ *
+ * SQLite has no ADD COLUMN IF NOT EXISTS, so the current columns are read from
+ * table_info first. The column name and definition are code-supplied constants,
+ * never user input.
+ */
+function ensureColumn(
+  db: Database.Database,
+  table: string,
+  column: string,
+  definition: string
+): void {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+
+  if (!columns.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
 }
 
 /**
@@ -208,5 +265,7 @@ export function executeBatch(sql: string): void {
 export function runTransaction<T>(fn: (db: Database.Database) => T): T {
   const db = useDb();
   const transaction = db.transaction(fn);
-  return transaction();
+  // Arguments passed here are forwarded to fn — calling transaction() with no
+  // arguments invoked fn(undefined).
+  return transaction(db);
 }

@@ -10,8 +10,60 @@ interface CacheEntry {
 const CACHE_TTL = 60 * 1000; // 60 seconds default TTL
 const MAX_CACHE_SIZE = 1000;
 
+/**
+ * Minimal generic LRU keyed by anything, with no TTL.
+ *
+ * Map preserves insertion order, so "least recently used" is simply the first
+ * key. Used for the encryption key cache, which holds Buffers rather than the
+ * JSON strings the TTL-based Cache below is built for.
+ */
+export class LruCache<K, V> {
+  private store = new Map<K, V>();
+
+  constructor(readonly maxSize: number = MAX_CACHE_SIZE) {}
+
+  has(key: K): boolean {
+    return this.store.has(key);
+  }
+
+  get(key: K): V | undefined {
+    if (!this.store.has(key)) return undefined;
+
+    // Re-insert to mark as most recently used
+    const value = this.store.get(key)!;
+    this.store.delete(key);
+    this.store.set(key, value);
+
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    this.store.delete(key);
+
+    while (this.store.size >= this.maxSize) {
+      const oldest = this.store.keys().next();
+      if (oldest.done) break;
+      this.store.delete(oldest.value);
+    }
+
+    this.store.set(key, value);
+  }
+
+  delete(key: K): boolean {
+    return this.store.delete(key);
+  }
+
+  clear(): void {
+    this.store.clear();
+  }
+
+  get size(): number {
+    return this.store.size;
+  }
+}
+
 export class Cache {
-  private store: Map<string, CacheEntry>;
+  readonly store: Map<string, CacheEntry>;
   private maxSize: number;
 
   constructor(maxSize: number = MAX_CACHE_SIZE) {
@@ -51,8 +103,9 @@ export class Cache {
     
     // Evict oldest entries if at capacity
     while (this.store.size >= this.maxSize) {
-      const oldestKey = this.store.keys().next().value;
-      this.store.delete(oldestKey);
+      const oldest = this.store.keys().next();
+      if (oldest.done) break; // empty map — nothing left to evict
+      this.store.delete(oldest.value);
     }
     
     this.store.set(key, {

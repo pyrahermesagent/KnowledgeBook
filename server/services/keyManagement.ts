@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { getEncryptionKey } from '#server/services/encryption';
+import { getEncryptionKey, wrapProjectKey, generateKeyId } from '#server/services/encryption';
 
 /**
  * Backend Service: Project Key Management
@@ -28,24 +28,22 @@ export function ensureProjectEncryptionKey(projectId: number): Buffer {
   const key = getProjectEncryptionKey(projectId);
   if (key) return key;
 
-  // Key not in cache, generate and store
+  // No key provisioned yet: generate one and wrap it with the master secret.
   const db = useDb();
-  const keyId = crypto.randomUUID();
+  const keyId = generateKeyId();
   const newKey = crypto.randomBytes(32);
 
-  // Encrypt and store
-  const masterSecret = `project-secret-${projectId}`;
-  const masterKey = crypto.pbkdf2Sync(masterSecret, `project-${projectId}`, 100000, 32, 'sha256');
-
-  const cipher = crypto.createCipheriv('aes-256-gcm', masterKey, crypto.randomBytes(12));
-  const encryptedKey = Buffer.concat([cipher.update(newKey), cipher.final(), cipher.getAuthTag()]);
-
+  // wrapProjectKey stores the salt and IV alongside the ciphertext, so the key
+  // can actually be recovered later.
   db.prepare(
     `
     INSERT INTO encryption_keys (project_id, key_id, encrypted_key, created_at)
     VALUES (?, ?, ?, datetime('now'))
+    ON CONFLICT(project_id) DO NOTHING
   `
-  ).run(projectId, keyId, encryptedKey.toString('base64'));
+  ).run(projectId, keyId, wrapProjectKey(projectId, newKey));
 
-  return newKey;
+  // A concurrent request may have won the insert; re-read so both callers end
+  // up with the key that was actually persisted.
+  return getEncryptionKey(projectId);
 }

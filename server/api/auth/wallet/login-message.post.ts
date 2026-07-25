@@ -1,6 +1,9 @@
-import { generateNonce } from '#utils/auth-wallet'
+import { createLoginMessage, generateNonce, normalizeAddress, type StoredNonce } from '#utils/auth-wallet'
+import { requireAuthRateLimit } from '#utils/ratelimit'
 
 export default defineEventHandler(async (event) => {
+  requireAuthRateLimit(event, 'login-message')
+
   const body = await readBody(event)
   const { address } = body
 
@@ -8,25 +11,18 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Missing required field: address' })
   }
 
-  // Get nonce from session or generate new one
-  const session = await useSession(event)
-  let nonce = session.data.walletNonce
-  if (!nonce) {
-    nonce = generateNonce()
-    session.data.walletNonce = nonce
-    await session.save()
-  }
+  // Rejects anything that is not a well-formed EVM address before it reaches
+  // the login message or the database.
+  const walletAddress = normalizeAddress(address)
 
-  // Create login message (imported inline to avoid circular deps)
-  const domain = 'knowledgebook.app'
-  const uri = 'https://knowledgebook.app/login'
-  const statement = 'Please sign this message to confirm your identity.'
-  const chainId = 1 // Ethereum mainnet
-  const issuedAt = new Date().toISOString()
-  const message = `${domain} wants you to sign in with your Ethereum account:\n\n${address}\n\n${statement}\nURI: ${uri}\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${issuedAt}`
+  // Always issue a fresh challenge. Reusing a nonce still sitting in the
+  // session would let an old signature be replayed against a new login.
+  // Stored under `secure` so it stays server-side only.
+  const nonce: StoredNonce = { value: generateNonce(), issuedAt: Date.now() }
+  await setUserSession(event, { secure: { walletNonce: nonce } })
 
   return {
     success: true,
-    message
+    message: createLoginMessage(walletAddress, nonce.value),
   }
 })

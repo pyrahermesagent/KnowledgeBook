@@ -3,10 +3,12 @@
 // - VitePress: Compatible with VitePress deployment
 // - Plain HTML: Simple static pages
 
-import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync, createWriteStream } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { URL } from 'url';
-import { format } from 'date-fns';
+import { spawn } from 'child_process';
+import MarkdownIt from 'markdown-it';
+import archiver from 'archiver';
 
 interface ProjectData {
   id: number;
@@ -133,7 +135,7 @@ function getProjectBySlug(slug: string): ProjectData | undefined {
  * Convert GitBook markdown to HTML for static export
  */
 function convertMarkdownToHtml(markdown: string): string {
-  const md = require('markdown-it')({
+  const md = MarkdownIt({
     html: true,
     breaks: true,
     linkify: true
@@ -685,28 +687,32 @@ export async function generateDeployPackage(
   format: string
 ): Promise<{ success: boolean; archivePath?: string; errors: string[] }> {
   const result = { success: false, errors: [] as string[] };
-  
+
   try {
-    const { spawn } = require('child_process');
-    const archiver = require('archiver');
-    
     const archivePath = join(outputDir, `export-${format}-${Date.now()}.zip`);
-    const output = require('fs').createWriteStream(archivePath);
+    const output = createWriteStream(archivePath);
     const archive = archiver('zip', { zlib: { level: 9 } });
-    
-    output.on('close', () => {
-      result.success = true;
-      result.archivePath = archivePath;
+
+    // finalize() resolves once the input side is done, but the archive is only
+    // complete when the output stream closes — wait for that before reporting
+    // success, otherwise callers get a path to a partially written file.
+    const closed = new Promise<void>((resolvePromise, reject) => {
+      output.on('close', () => resolvePromise());
+      output.on('error', reject);
+      archive.on('error', reject);
     });
-    
+
     archive.pipe(output);
     archive.directory(outputDir, false);
     await archive.finalize();
-    
+    await closed;
+
+    result.success = true;
+    result.archivePath = archivePath;
   } catch (error) {
     result.errors.push((error as Error).message);
   }
-  
+
   return result;
 }
 
@@ -721,15 +727,13 @@ export async function previewSite(
   const result = { success: false, errors: [] as string[] };
   
   try {
-    const { spawn } = require('child_process');
-    
     let command: string;
     let args: string[];
-    
+
     switch (format) {
       case 'nuxt':
         command = 'npx';
-        args = ['nuxti', 'preview', outputDir];
+        args = ['nuxi', 'preview', outputDir];
         break;
       case 'vitepress':
         command = 'npx';

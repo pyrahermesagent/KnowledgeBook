@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { generateNonce, createLoginMessage } from '#utils/auth-wallet'
-
 const walletAddress = ref<string | null>(null)
 const chainId = ref<number>(1)
 const isConnected = computed(() => !!walletAddress.value)
 const isLoading = ref(false)
 
 const emit = defineEmits(['connect', 'disconnect'])
+
+/** Shorten an address for display: 0x1234…abcd */
+const formatAddress = (address: string): string =>
+  address.length > 10 ? `${address.slice(0, 6)}…${address.slice(-4)}` : address
 
 // Check if wallet is already connected in session
 const checkConnection = async () => {
@@ -52,8 +54,11 @@ const connectWallet = async () => {
       })
     })
 
-    walletAddress.value = address
-    emit('connect', { address, chainId: chainId.value })
+    // Trust the address the server recovered from the signature, not the one
+    // the injected provider reported.
+    walletAddress.value = result.wallet.address
+    chainId.value = result.wallet.chain_id
+    emit('connect', { address: result.wallet.address, chainId: chainId.value })
   } catch (error: any) {
     console.error('Wallet connection failed:', error)
     throw error

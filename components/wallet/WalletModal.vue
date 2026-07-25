@@ -5,7 +5,7 @@ const props = defineProps<{
   onConnect: (address: string, chainId: number) => void
 }>()
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'connect'])
 
 const wallets = [
   { name: 'MetaMask', icon: '🦊', supported: true },

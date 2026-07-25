@@ -29,6 +29,8 @@ export interface ProjectRow {
   radius: number
   created_at: string
   updated_at: string
+  /** Set when the project is owned via a wallet rather than a Google account. */
+  owner_wallet_address: string | null
 }
 
 export function getProjectBySlug (slug: string): ProjectRow | undefined {

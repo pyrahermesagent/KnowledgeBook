@@ -1,10 +1,13 @@
-import { validateErc721Ownership } from './token-validation'
+import type { H3Event } from 'h3'
+import { validateErc721Ownership, toSupportedNetwork, type SupportedNetwork } from './token-validation'
 
 export interface NftOwnershipRecord {
   project_id: number
   nft_contract: string
-  nft_token_id: number
-  network: 'ethereum' | 'polygon' | 'arbitrum' | 'base'
+  // Stored as TEXT: ERC-721 token IDs are uint256 and routinely exceed the
+  // range JavaScript numbers can represent exactly.
+  nft_token_id: string
+  network: SupportedNetwork
   owner_address: string
   granted_at: string
 }
@@ -33,9 +36,9 @@ export async function validateNftProjectOwnership (
     const actualOwner = await validateErc721Ownership(
       nftRecord.nft_contract,
       nftRecord.nft_token_id,
-      walletAddress
+      toSupportedNetwork(nftRecord.network)
     )
-    
+
     const owns = actualOwner.toLowerCase() === walletAddress.toLowerCase()
     
     return { ownsProject: owns, nft: nftRecord }
@@ -55,31 +58,41 @@ export async function transferProjectOwnershipViaNft (
   toWallet: string
 ): Promise<{ success: boolean; error?: string }> {
   const db = useDb()
-  
+  const recipient = toWallet.toLowerCase()
+
   // Verify fromWallet owns the NFT
   const { ownsProject, nft } = await validateNftProjectOwnership(projectId, fromWallet)
-  
+
   if (!ownsProject || !nft) {
-    return { 
-      success: false, 
-      error: 'You do not own the required NFT to transfer this project' 
+    return {
+      success: false,
+      error: 'You do not own the required NFT to transfer this project'
     }
   }
-  
-  // Verify toWallet has a wallet user record (or create one)
-  db.prepare(`
-    INSERT OR IGNORE INTO wallet_users (wallet_address, chain_id, created_at)
-    VALUES (?, 1, datetime('now'))
-  `).run(toWallet)
-  
-  // Update project ownership
-  db.prepare(`
-    UPDATE projects 
-    SET owner_wallet_address = ?,
-        updated_at = datetime('now')
-    WHERE id = ?
-  `).run(toWallet, projectId)
-  
+
+  // The wallet record, the project owner and the ownership record must move
+  // together — a partial transfer would leave the project unreachable by either
+  // wallet.
+  db.transaction(() => {
+    db.prepare(`
+      INSERT OR IGNORE INTO wallet_users (wallet_address, chain_id, created_at)
+      VALUES (?, 1, datetime('now'))
+    `).run(recipient)
+
+    db.prepare(`
+      UPDATE projects
+      SET owner_wallet_address = ?,
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).run(recipient, projectId)
+
+    db.prepare(`
+      UPDATE nft_project_ownership
+      SET owner_address = ?, granted_at = datetime('now')
+      WHERE project_id = ? AND nft_contract = ?
+    `).run(recipient, projectId, nft.nft_contract)
+  })()
+
   return { success: true }
 }
 
@@ -89,30 +102,27 @@ export async function transferProjectOwnershipViaNft (
 export function addNftProjectOwnership (
   projectId: number,
   nftContract: string,
-  nftTokenId: number,
-  network: 'ethereum' | 'polygon' | 'arbitrum' | 'base',
+  nftTokenId: number | bigint | string,
+  network: SupportedNetwork,
   ownerAddress: string
 ): void {
   const db = useDb()
-  
-  // Check if NFT ownership already exists
-  const existing = db.prepare(`
-    SELECT 1 FROM nft_project_ownership 
-    WHERE project_id = ? AND nft_contract = ?
-  `).get(projectId, nftContract) as { 1: number } | undefined
-  
-  if (existing) {
-    db.prepare(`
-      UPDATE nft_project_ownership 
-      SET nft_token_id = ?, network = ?, owner_address = ?, granted_at = datetime('now')
-      WHERE project_id = ? AND nft_contract = ?
-    `).run(nftTokenId, network, ownerAddress, projectId, nftContract)
-  } else {
-    db.prepare(`
-      INSERT INTO nft_project_ownership (project_id, nft_contract, nft_token_id, network, owner_address, granted_at)
-      VALUES (?, ?, ?, ?, ?, datetime('now'))
-    `).run(projectId, nftContract, nftTokenId, network, ownerAddress)
-  }
+
+  db.prepare(`
+    INSERT INTO nft_project_ownership (project_id, nft_contract, nft_token_id, network, owner_address, granted_at)
+    VALUES (?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(project_id, nft_contract) DO UPDATE SET
+      nft_token_id  = excluded.nft_token_id,
+      network       = excluded.network,
+      owner_address = excluded.owner_address,
+      granted_at    = datetime('now')
+  `).run(
+    projectId,
+    nftContract,
+    BigInt(nftTokenId).toString(),
+    network,
+    ownerAddress.toLowerCase()
+  )
 }
 
 /**
@@ -130,9 +140,9 @@ export function getNftOwnedProjects (walletAddress: string): number[] {
   const db = useDb()
   
   const projects = db.prepare(`
-    SELECT project_id FROM nft_project_ownership 
+    SELECT project_id FROM nft_project_ownership
     WHERE owner_address = ?
-  `).all(walletAddress) as { project_id: number }[]
+  `).all(walletAddress.toLowerCase()) as { project_id: number }[]
   
   return projects.map(p => p.project_id)
 }
@@ -166,7 +176,7 @@ export async function validateNftAccess (
  * Middleware for NFT-gated project access
  */
 export async function nftGateMiddleware (event: H3Event): Promise<void> {
-  const wallet = await useSession(event).data.wallet as { wallet_address: string } | undefined
+  const wallet = await getSessionWallet(event)
   const slug = getRouterParam(event, 'slug')!
   const project = getProjectBySlug(slug)
   

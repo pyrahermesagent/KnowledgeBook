@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { LRUMap } from 'lru-map';
+import { LruCache } from '#utils/cache';
 
 /**
  * Encryption service for KnowledgeBook
@@ -10,8 +10,16 @@ const DEFAULT_ALGORITHM = 'aes-256-gcm';
 const DEFAULT_KEY_LENGTH = 32; // 256 bits
 const DEFAULT_IV_LENGTH = 12; // 96 bits recommended for GCM
 
+// Key-wrapping parameters. The salt is random per project key and stored with
+// the wrapped key, so two projects never derive the same wrapping key even
+// though the master secret is shared.
+const WRAP_SALT_LENGTH = 16;
+const WRAP_AUTH_TAG_LENGTH = 16;
+const PBKDF2_ITERATIONS = 210_000; // OWASP 2023 guidance for PBKDF2-HMAC-SHA512
+const PBKDF2_DIGEST = 'sha512';
+
 // LRU cache for encryption keys (max 1000 entries)
-const keyCache = new LRUMap<number, EncryptionKey>(1000);
+const keyCache = new LruCache<number, EncryptionKey>(1000);
 
 /**
  * Cache entry for encryption key with rotation tracking
@@ -44,6 +52,89 @@ function isKeyRotated(key: EncryptionKey): boolean {
   const latestDate = new Date(latestKey.updated_at);
 
   return latestDate > cacheDate;
+}
+
+/**
+ * Resolve the master secret used to wrap project keys.
+ *
+ * This must come from the environment. Deriving it from the project ID (as an
+ * earlier version did) gave no protection at all: anyone with the database
+ * could recompute every project key from the public row ID.
+ */
+function getMasterSecret(): string {
+  const config = useRuntimeConfig();
+  const secret =
+    config.encryptionMasterKey ||
+    process.env.NUXT_ENCRYPTION_MASTER_KEY ||
+    // The session password is already a mandatory high-entropy secret, so it is
+    // a safe fallback for deployments that have not set a dedicated key yet.
+    config.session?.password ||
+    process.env.NUXT_SESSION_PASSWORD;
+
+  if (!secret) {
+    throw new Error(
+      'No encryption master secret configured. Set NUXT_ENCRYPTION_MASTER_KEY before using page encryption.'
+    );
+  }
+
+  return secret;
+}
+
+/**
+ * Derive the key-wrapping key for a project from the master secret and a
+ * per-key random salt. The project ID is mixed in so a wrapped key cannot be
+ * moved between projects.
+ */
+function deriveWrappingKey(projectId: number, salt: Buffer): Buffer {
+  return crypto.pbkdf2Sync(
+    `${getMasterSecret()}:project-${projectId}`,
+    salt,
+    PBKDF2_ITERATIONS,
+    DEFAULT_KEY_LENGTH,
+    PBKDF2_DIGEST
+  );
+}
+
+/**
+ * Wrap a project key for storage.
+ *
+ * Layout: salt(16) || iv(12) || ciphertext || authTag(16), base64 encoded.
+ * The IV is stored rather than regenerated at unwrap time — the previous code
+ * decrypted with a fresh random IV, which could never reproduce the key.
+ */
+export function wrapProjectKey(projectId: number, key: Buffer): string {
+  const salt = crypto.randomBytes(WRAP_SALT_LENGTH);
+  const iv = crypto.randomBytes(DEFAULT_IV_LENGTH);
+  const wrappingKey = deriveWrappingKey(projectId, salt);
+
+  const cipher = crypto.createCipheriv(DEFAULT_ALGORITHM, wrappingKey, iv);
+  const ciphertext = Buffer.concat([cipher.update(key), cipher.final()]);
+
+  return Buffer.concat([salt, iv, ciphertext, cipher.getAuthTag()]).toString('base64');
+}
+
+/**
+ * Unwrap a stored project key. Throws if the blob is malformed or the master
+ * secret does not match — callers must not fall back to a derived key, or they
+ * would silently encrypt new content under a key that cannot read the old.
+ */
+export function unwrapProjectKey(projectId: number, wrapped: string): Buffer {
+  const blob = Buffer.from(wrapped, 'base64');
+
+  if (blob.length <= WRAP_SALT_LENGTH + DEFAULT_IV_LENGTH + WRAP_AUTH_TAG_LENGTH) {
+    throw new Error('Stored encryption key is malformed');
+  }
+
+  const salt = blob.subarray(0, WRAP_SALT_LENGTH);
+  const iv = blob.subarray(WRAP_SALT_LENGTH, WRAP_SALT_LENGTH + DEFAULT_IV_LENGTH);
+  const authTag = blob.subarray(-WRAP_AUTH_TAG_LENGTH);
+  const ciphertext = blob.subarray(WRAP_SALT_LENGTH + DEFAULT_IV_LENGTH, -WRAP_AUTH_TAG_LENGTH);
+
+  const wrappingKey = deriveWrappingKey(projectId, salt);
+  const decipher = crypto.createDecipheriv(DEFAULT_ALGORITHM, wrappingKey, iv);
+  decipher.setAuthTag(authTag);
+
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
 }
 
 /**
@@ -80,36 +171,22 @@ export function getEncryptionKey(projectId: number): Buffer {
   ).get(projectId) as { encrypted_key: string; key_id: string; created_at: string } | undefined;
 
   if (!keyRecord) {
-    return generateProjectKey(projectId);
+    // No key provisioned yet. Callers that intend to encrypt should go through
+    // ensureProjectEncryptionKey(); silently inventing one here would produce a
+    // key that does not match anything already stored.
+    throw new Error(`No encryption key provisioned for project ${projectId}`);
   }
 
-  try {
-    // Decrypt the stored key using project master secret
-    const masterSecret = `project-secret-${projectId}`;
-    const masterKey = crypto.pbkdf2Sync(masterSecret, `project-${projectId}`, 100000, 32, 'sha256');
+  const key = unwrapProjectKey(projectId, keyRecord.encrypted_key);
 
-    const encryptedKeyBuffer = Buffer.from(keyRecord.encrypted_key, 'base64');
-    const authTag = encryptedKeyBuffer.subarray(-16);
-    const encryptedData = encryptedKeyBuffer.subarray(0, -16);
+  keyCache.set(projectId, {
+    projectId,
+    key,
+    keyId: keyRecord.key_id,
+    createdAt: Date.now(),
+  });
 
-    const decipher = crypto.createDecipheriv('aes-256-gcm', masterKey, crypto.randomBytes(12));
-    decipher.setAuthTag(authTag);
-
-    const key = Buffer.concat([decipher.update(encryptedData), decipher.final()]);
-
-    // Cache the key
-    keyCache.set(projectId, {
-      projectId,
-      key,
-      keyId: keyRecord.key_id,
-      createdAt: Date.now(),
-    });
-
-    return key;
-  } catch (error) {
-    console.error('Failed to decrypt encryption key:', error);
-    return generateProjectKey(projectId);
-  }
+  return key;
 }
 
 /**

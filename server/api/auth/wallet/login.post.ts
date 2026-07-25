@@ -1,51 +1,54 @@
-import { verifyWalletSignature, upsertWalletUser } from '#utils/auth-wallet'
+import { verifyLoginAttempt, upsertWalletUser, getWeb3Config, type StoredNonce } from '#utils/auth-wallet'
+import { requireAuthRateLimit } from '#utils/ratelimit'
 
 export default defineEventHandler(async (event) => {
+  requireAuthRateLimit(event, 'login')
+
   const body = await readBody(event)
 
-  // Validate required fields
-  if (!body.address || !body.signature) {
-    throw createError({ statusCode: 400, message: 'Missing required field: address or signature' })
+  if (!body.message || !body.signature) {
+    throw createError({ statusCode: 400, message: 'Missing required field: message or signature' })
   }
 
-  const { address, signature } = body
+  const session = await getUserSession(event)
+  const storedNonce = (session.secure as { walletNonce?: StoredNonce } | undefined)?.walletNonce
 
-  try {
-    // Verify wallet signature
-    const { success, address: verifiedAddress } = await verifyWalletSignature(
-      event,
-      body.message || '',
-      signature
-    )
+  // Single-use challenge: drop it before verifying, so a failed or replayed
+  // attempt cannot be retried against the same nonce. replaceUserSession is
+  // used rather than setUserSession because the latter merges, which would
+  // leave the old nonce in place.
+  await replaceUserSession(event, {
+    ...session,
+    secure: { ...(session.secure as Record<string, unknown>), walletNonce: undefined },
+  })
 
-    if (!success) {
-      throw createError({ statusCode: 401, message: 'Invalid signature' })
-    }
+  const { success, address, reason } = await verifyLoginAttempt(
+    body.message,
+    body.signature,
+    storedNonce
+  )
 
-    if (verifiedAddress.toLowerCase() !== address.toLowerCase()) {
-      throw createError({ statusCode: 401, message: 'Signature does not match address' })
-    }
+  if (!success) {
+    throw createError({ statusCode: 401, message: reason || 'Invalid signature' })
+  }
 
-    // Store/update wallet user
-    const walletId = upsertWalletUser(verifiedAddress, 1) // Default to Ethereum mainnet
+  const { chainId } = getWeb3Config()
 
-    // Set session
-    const session = await useSession(event)
-    session.data.wallet = {
-      wallet_address: verifiedAddress,
-      chain_id: 1
-    }
-    await session.save()
+  // Bind the session to the recovered signer, never to a client-supplied address.
+  upsertWalletUser(address, chainId)
 
-    return {
-      ok: true,
-      wallet: {
-        address: verifiedAddress,
-        chain_id: 1
-      }
-    }
-  } catch (error: any) {
-    console.error('Wallet login error:', error)
-    throw createError({ statusCode: 500, message: error.message || 'Wallet login failed' })
+  await setUserSession(event, {
+    wallet: {
+      wallet_address: address,
+      chain_id: chainId,
+    },
+  })
+
+  return {
+    ok: true,
+    wallet: {
+      address,
+      chain_id: chainId,
+    },
   }
 })

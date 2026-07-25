@@ -1,6 +1,8 @@
 // Rate limiting for MCP server write operations
 // Implements token bucket algorithm for AI operations
 
+import type { H3Event } from 'h3'
+
 interface RateLimitConfig {
   requestsPerMinute: number;
   burstSize: number;
@@ -88,4 +90,36 @@ export function withRateLimit(
   config: RateLimitConfig = defaultConfig
 ): { allowed: boolean; retryAfter?: number } {
   return checkRateLimit(userId, config);
+}
+
+/**
+ * Stricter budget for unauthenticated auth endpoints.
+ *
+ * Signature verification is the expensive, brute-forceable part of wallet
+ * login, so these are limited far below the general API budget.
+ */
+const authConfig: RateLimitConfig = {
+  requestsPerMinute: 10,
+  burstSize: 5,
+  windowMs: 60 * 1000,
+};
+
+/**
+ * Enforce a per-IP rate limit on an auth endpoint, throwing 429 when exceeded.
+ *
+ * Auth endpoints run before a session identity exists, so these bucket on the
+ * client IP rather than a user ID. `scope` keeps each endpoint's budget
+ * separate, so exhausting nonce requests does not also lock out login.
+ */
+export function requireAuthRateLimit(event: H3Event, scope: string): void {
+  const ip = getRequestIP(event, { xForwardedFor: true }) || 'unknown';
+  const { allowed, retryAfter } = checkRateLimit(`auth:${scope}:${ip}`, authConfig);
+
+  if (!allowed) {
+    throw createError({
+      statusCode: 429,
+      message: 'Too many requests, please slow down',
+      data: { retryAfter },
+    });
+  }
 }

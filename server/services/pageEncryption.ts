@@ -5,7 +5,7 @@ import {
   computeContentHash,
   getEncryptionKey,
 } from '#server/services/encryption';
-import crypto from 'node:crypto';
+import { ensureProjectEncryptionKey } from '#server/services/keyManagement';
 
 /**
  * Encrypt page content and store in database
@@ -25,8 +25,8 @@ export async function encryptPageContent(
 
   const projectId = page.project_id;
 
-  // Get encryption key from cache (or generate and store)
-  const projectKey = getEncryptionKey(projectId);
+  // Get encryption key from cache, provisioning one on first use
+  const projectKey = ensureProjectEncryptionKey(projectId);
 
   // Encrypt content
   const encrypted = encrypt(content, projectKey);
@@ -82,17 +82,4 @@ export function decryptPageContent(page: {
     console.error('Failed to decrypt page content:', error);
     throw new Error('Unable to decrypt page content');
   }
-}
-
-/**
- * Generate project-specific encryption key
- */
-function generateProjectKey(projectId: number): Buffer {
-  return crypto.pbkdf2Sync(
-    `project-secret-${projectId}`,
-    `project-${projectId}`,
-    100000,
-    32,
-    'sha256'
-  );
 }

@@ -1,13 +1,19 @@
+import crypto from 'node:crypto';
 import { type Page } from '#types';
 import { decryptPageContent } from '#server/services/pageEncryption';
 import { getEncryptionKey } from '#server/services/encryption';
 
 /**
- * Page interface extension for decryption
+ * A page row plus the encryption columns, in the shape decryptPageContent
+ * expects: content is always present (empty string when encrypted) and the
+ * encryption columns are nullable rather than optional.
  */
-interface DecryptablePage extends Page {
-  content?: string;
-  is_encrypted?: boolean;
+export interface DecryptablePage extends Page {
+  content: string;
+  encrypted_content: string | null;
+  encryption_iv: string | null;
+  encryption_key_id: string | null;
+  is_encrypted: boolean;
 }
 
 /**
@@ -24,24 +30,30 @@ export async function decryptPagesInBatch(
     return pages;
   }
 
-  // Get encryption key once (cached)
-  const projectKey = getEncryptionKey(projectId);
+  const hasEncryptedPages = pages.some(
+    (page) => page.is_encrypted && page.encrypted_content && page.encryption_iv
+  );
 
-  // Decrypt all pages in parallel
-  const decryptPromises = pages.map((page) => {
+  // Warm the key cache once so each page decrypt is a cache hit. Skipped when
+  // nothing is encrypted, since projects without encrypted content have no
+  // provisioned key and looking one up would throw.
+  if (hasEncryptedPages) {
+    getEncryptionKey(projectId);
+  }
+
+  // decryptPageContent is synchronous (CPU-bound), so there is no I/O to overlap
+  // here. Wrapping it in Promise.all would add scheduling overhead without any
+  // concurrency benefit — the win comes from the shared key cache above.
+  return pages.map((page) => {
     if (!page.is_encrypted || !page.encrypted_content || !page.encryption_iv) {
-      return Promise.resolve(page);
+      return page;
     }
 
-    return decryptPageContent(page).then((content) => ({
+    return {
       ...page,
-      content,
-    }));
+      content: decryptPageContent(page),
+    };
   });
-
-  const decryptedPages = await Promise.all(decryptPromises);
-
-  return decryptedPages;
 }
 
 /**
@@ -80,7 +92,6 @@ export function getEncryptedContentHash(
  * Compute content hash for verification
  */
 function computeHash(encryptedContent: string, encryptionIv: string): string {
-  const crypto = require('node:crypto');
   return crypto
     .createHash('sha256')
     .update(encryptedContent + encryptionIv)
@@ -113,10 +124,9 @@ export async function decryptPageLazy(
     return page;
   }
 
-  const content = await decryptPageContent(page);
   return {
     ...page,
-    content,
+    content: decryptPageContent(page),
   };
 }
 

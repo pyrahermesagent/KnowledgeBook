@@ -9,7 +9,31 @@ import { getMetrics, resetMetrics, recordDecryptionDuration, getDecryptionMetric
 /**
  * Performance Test Suite for KnowledgeBook Encryption Features
  * Tests encryption key caching, batch operations, and performance metrics
+ *
+ * NOTE: this directory is not matched by vitest.config.ts (`include` covers
+ * tests/ and benchmarks/), so this suite does not currently run. The functional
+ * coverage for these modules lives in tests/batch-decrypt.test.ts and
+ * tests/encryption-keys.test.ts.
  */
+
+/** Build a full page row; the encryption helpers need every column present. */
+function makePage(id: number, overrides: Record<string, unknown> = {}) {
+  return {
+    id,
+    project_id: 100,
+    section_id: null,
+    slug: `page-${id}`,
+    title: `Page ${id}`,
+    position: 0,
+    updated_at: '2026-01-01 00:00:00',
+    content: '',
+    encrypted_content: 'dGVzdA==', // base64 'test'
+    encryption_iv: '000000000000000000000000',
+    encryption_key_id: 'test-key-id',
+    is_encrypted: true,
+    ...overrides,
+  };
+}
 
 describe('Encryption Performance Tests', () => {
   beforeAll(() => {
@@ -63,17 +87,10 @@ describe('Encryption Performance Tests', () => {
 
   describe('Batch Decryption', () => {
     it('should decrypt multiple pages concurrently', async () => {
-      const pages = Array.from({ length: 10 }, (_, i) => ({
-        id: i + 1,
-        project_id: 100,
-        encrypted_content: 'dGVzdA==', // base64 'test'
-        encryption_iv: '000000000000000000000000',
-        encryption_key_id: 'test-key-id',
-        is_encrypted: true
-      }));
+      const pages = Array.from({ length: 10 }, (_, i) => makePage(i + 1));
 
       const start = performance.now();
-      const results = await decryptPagesInBatch(pages, 100);
+      await decryptPagesInBatch(pages, 100);
       const duration = performance.now() - start;
 
       // Batch decryption should complete in reasonable time
@@ -81,17 +98,10 @@ describe('Encryption Performance Tests', () => {
     });
 
     it('should handle lazy decryption', async () => {
-      const page = {
-        id: 1,
-        project_id: 100,
-        encrypted_content: 'dGVzdA==',
-        encryption_iv: '000000000000000000000000',
-        encryption_key_id: 'test-key-id',
-        is_encrypted: true
-      };
+      const page = makePage(1);
 
       const start = performance.now();
-      const result = await decryptPageLazy(page, 100);
+      await decryptPageLazy(page, 100);
       const duration = performance.now() - start;
 
       // Lazy decryption should be fast

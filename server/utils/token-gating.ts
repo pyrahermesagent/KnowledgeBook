@@ -1,11 +1,19 @@
-import { validateErc20Balance, validateErc721Ownership } from './token-validation'
+import type { H3Event } from 'h3'
+import {
+  validateErc20Balance,
+  validateErc721Ownership,
+  toSupportedNetwork,
+  type SupportedNetwork,
+} from './token-validation'
 
 export interface TokenGatedProject {
   project_id: number
   token_contract: string
-  token_id?: number // For ERC-721
-  min_balance?: number // For ERC-20
-  network: 'ethereum' | 'polygon' | 'arbitrum' | 'base'
+  // SQLite returns NULL (not undefined) for unset columns, so these are
+  // nullable — checking against `undefined` alone would take the wrong branch.
+  token_id?: number | null // For ERC-721
+  min_balance?: number | null // For ERC-20
+  network: SupportedNetwork
   created_at: string
 }
 
@@ -28,32 +36,34 @@ export async function validateTokenAccess (
     return { hasAccess: true }
   }
   
+  const network = toSupportedNetwork(tokenProject.network)
+
   try {
-    if (tokenProject.min_balance !== undefined) {
+    if (tokenProject.min_balance != null) {
       // ERC-20 balance check
       const balance = await validateErc20Balance(
         walletAddress,
         tokenProject.token_contract,
         tokenProject.min_balance,
-        tokenProject.network
+        network
       )
-      
+
       if (balance >= tokenProject.min_balance) {
         return { hasAccess: true }
       }
-      
-      return { 
-        hasAccess: false, 
-        reason: `Insufficient balance. Required: ${tokenProject.min_balance} tokens` 
+
+      return {
+        hasAccess: false,
+        reason: `Insufficient balance. Required: ${tokenProject.min_balance} tokens`
       }
-    } else if (tokenProject.token_id !== undefined) {
+    } else if (tokenProject.token_id != null) {
       // ERC-721 ownership check
       const owner = await validateErc721Ownership(
         tokenProject.token_contract,
         tokenProject.token_id,
-        walletAddress
+        network
       )
-      
+
       if (owner.toLowerCase() === walletAddress.toLowerCase()) {
         return { hasAccess: true }
       }
@@ -78,7 +88,7 @@ export async function validateTokenAccess (
  * Middleware for token-gated access control
  */
 export async function tokenGateMiddleware (event: H3Event): Promise<void> {
-  const wallet = await useSession(event).data.wallet as { wallet_address: string } | undefined
+  const wallet = await getSessionWallet(event)
   const slug = getRouterParam(event, 'slug')!
   const project = getProjectBySlug(slug)
   
@@ -104,10 +114,11 @@ export async function tokenGateMiddleware (event: H3Event): Promise<void> {
 export async function validateNftOwnership (
   nftContract: string,
   tokenId: string,
-  walletAddress: string
+  walletAddress: string,
+  network: SupportedNetwork = 'ethereum'
 ): Promise<boolean> {
   try {
-    const owner = await validateErc721Ownership(nftContract, parseInt(tokenId), walletAddress)
+    const owner = await validateErc721Ownership(nftContract, BigInt(tokenId), network)
     return owner.toLowerCase() === walletAddress.toLowerCase()
   } catch {
     return false
@@ -117,25 +128,23 @@ export async function validateNftOwnership (
 /**
  * Get all token-gated projects for a wallet
  */
-export function getWalletTokenProjects (walletAddress: string): number[] {
+export async function getWalletTokenProjects (walletAddress: string): Promise<number[]> {
   const db = useDb()
-  
-  // Get projects where wallet has ERC-20 balance
-  const erc20Projects = db.prepare(`
-    SELECT tgp.project_id 
-    FROM token_gated_projects tgp
-    WHERE tgp.min_balance IS NOT NULL
-  `).all() as { project_id: number }[]
-  
-  // Get projects where wallet owns NFT
-  const nftProjects = db.prepare(`
-    SELECT tgp.project_id 
-    FROM token_gated_projects tgp
-    WHERE tgp.token_id IS NOT NULL
-  `).all() as { project_id: number }[]
-  
-  // TODO: Filter by actual wallet balance/ownership
-  return [...new Set([...erc20Projects, ...nftProjects].map(p => p.project_id))]
+
+  const gatedProjects = db.prepare(
+    'SELECT project_id FROM token_gated_projects'
+  ).all() as { project_id: number }[]
+
+  // Ownership can only be answered by the chain, so each project is checked
+  // against the wallet rather than returned unconditionally.
+  const results = await Promise.all(
+    gatedProjects.map(async ({ project_id }) => {
+      const { hasAccess } = await validateTokenAccess(walletAddress, project_id)
+      return hasAccess ? project_id : null
+    })
+  )
+
+  return results.filter((id): id is number => id !== null)
 }
 
 /**

@@ -5,7 +5,7 @@
 // structure, read a page as markdown, search, and AI-powered write operations.
 // Connect with any MCP client, e.g.:  claude mcp add --transport http knowledgebook https://<host>/mcp
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
 import type { H3Event } from 'h3';
 
@@ -739,18 +739,51 @@ function buildMcpServer(): McpServer {
 // EXPORT HANDLER
 // ============================================================================
 
-export default defineEventHandler(async (event) => {
-  // Restrict CORS to known origins for security.
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
-  const origin = event.headers.get('origin');
-  const isAllowedOrigin = origin ? allowedOrigins.includes(origin) : false;
-
-  setResponseHeaders(event, {
-    'access-control-allow-origin': isAllowedOrigin ? origin : undefined,
+/**
+ * CORS response headers for the MCP endpoint.
+ *
+ * `access-control-allow-origin` is omitted entirely rather than set to
+ * undefined when the origin is not allowlisted: h3 forwards every value it is
+ * given to `ServerResponse.setHeader`, and Node throws
+ * `Invalid value "undefined" for header` on an undefined one. That turned every
+ * request into a 500 — ALLOWED_ORIGINS is unset by default, and the non-browser
+ * MCP clients this endpoint exists for send no Origin header at all.
+ *
+ * Exported for tests.
+ */
+export function buildCorsHeaders(
+  origin: string | null | undefined,
+  allowedOrigins: string[]
+): Record<string, string> {
+  const headers: Record<string, string> = {
     'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
     'access-control-allow-headers': 'content-type, mcp-session-id, mcp-protocol-version',
     'access-control-expose-headers': 'mcp-session-id',
-  });
+    // The response body is origin-independent but this header is not, so caches
+    // must not reuse one origin's response for another.
+    vary: 'Origin',
+  };
+
+  if (origin && allowedOrigins.includes(origin)) {
+    headers['access-control-allow-origin'] = origin;
+  }
+
+  return headers;
+}
+
+function parseAllowedOrigins(raw: string | undefined): string[] {
+  return (raw ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+export default defineEventHandler(async (event) => {
+  // Restrict CORS to known origins for security.
+  const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
+  const origin = event.headers.get('origin');
+
+  setResponseHeaders(event, buildCorsHeaders(origin, allowedOrigins));
   if (event.method === 'OPTIONS') {
     setResponseStatus(event, 204);
     return null;
@@ -769,8 +802,15 @@ export default defineEventHandler(async (event) => {
 
   // The server runs statelessly: a fresh server + transport pair per request,
   // no session ids, plain JSON responses (no SSE stream to keep open).
+  //
+  // The web-standard transport is the one that speaks Request -> Response.
+  // StreamableHTTPServerTransport is the Node/Express wrapper: its
+  // handleRequest(req, res) wants an IncomingMessage and a ServerResponse and
+  // resolves to void, so handing it a web Request left `res` undefined and
+  // every POST died on `Cannot read properties of undefined (reading
+  // 'headersSent')`.
   const server = buildMcpServer();
-  const transport = new StreamableHTTPServerTransport({
+  const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
   });

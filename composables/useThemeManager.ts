@@ -1,4 +1,4 @@
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, getCurrentInstance, onMounted, watch } from 'vue';
 import type { Theme, ColorPalette } from '~/types/theme';
 
 // Default theme definitions
@@ -137,37 +137,144 @@ const themes: Record<string, Theme> = {
   },
 };
 
+const STORAGE_KEY = 'activeTheme';
+
+/**
+ * Maps a ColorPalette key onto the CSS custom property the stylesheets read.
+ *
+ * The palette is camelCase while assets/css/main.css and every component style
+ * declare kebab-case names, and two of them are not even a case conversion
+ * (`background` is `--bg`, `surface` is `--bg-subtle`). Deriving the name with
+ * `--${key}` writes properties nothing consumes, which left dark mode painting
+ * near-white text onto the still-white `--bg`.
+ */
+const CSS_VARIABLES: Record<keyof ColorPalette, string> = {
+  primary: '--primary',
+  primaryHover: '--primary-hover',
+  secondary: '--secondary',
+  secondaryHover: '--secondary-hover',
+  accent: '--accent',
+  accentSoft: '--accent-soft',
+  background: '--bg',
+  surface: '--bg-subtle',
+  border: '--border',
+  text: '--text',
+  textMuted: '--text-muted',
+  radius: '--radius',
+  sidebarWidth: '--sidebar-width',
+  font: '--font',
+  mono: '--mono',
+};
+
+function hasTheme(themeId: string): boolean {
+  return Object.prototype.hasOwnProperty.call(themes, themeId);
+}
+
+/** localStorage throws on access in Safari private mode and cookie-blocked frames. */
+function readStoredTheme(): string | null {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    return localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredTheme(themeId: string): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(STORAGE_KEY, themeId);
+  } catch {
+    /* preference just won't persist; the theme still applies for this session */
+  }
+}
+
+// Shared across every call site. app.vue renders the root theme class and
+// ThemeToggle.vue drives the switch, so per-call refs left the button mutating
+// state nobody rendered. Module scope is safe under SSR because nothing mutates
+// these on the server: the client bootstrap below is the only writer that runs
+// outside a user event, and it bails out when `window` is undefined.
+const activeThemeId = ref<string>('light');
+const systemPrefersDark = ref(false);
+let clientReady = false;
+
+// Apply theme to CSS variables
+function applyTheme(themeId: string = activeThemeId.value): void {
+  if (typeof document === 'undefined') return;
+
+  const theme = hasTheme(themeId) ? themes[themeId] : undefined;
+  let resolvedTheme = theme;
+
+  if (theme?.type === 'auto') {
+    resolvedTheme = themes[systemPrefersDark.value ? 'dark' : 'light'];
+  }
+
+  if (!resolvedTheme?.colors) return;
+
+  const root = document.documentElement;
+  const colors = resolvedTheme.colors as ColorPalette;
+
+  Object.entries(colors).forEach(([key, value]) => {
+    const cssName = CSS_VARIABLES[key as keyof ColorPalette];
+    if (cssName) root.style.setProperty(cssName, value);
+  });
+
+  writeStoredTheme(themeId);
+}
+
+/**
+ * Restores the stored preference and starts tracking the system setting.
+ *
+ * Deliberately deferred to mount: reading localStorage during setup would make
+ * the client's first render disagree with the server's and trip a hydration
+ * mismatch, on top of throwing outright when there is no localStorage at all.
+ */
+function initClient(): void {
+  if (clientReady || typeof window === 'undefined') return;
+  clientReady = true;
+
+  const stored = readStoredTheme();
+  if (stored && hasTheme(stored)) {
+    activeThemeId.value = stored;
+  }
+
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  systemPrefersDark.value = mediaQuery.matches;
+  mediaQuery.addEventListener('change', (e) => {
+    systemPrefersDark.value = e.matches;
+    applyTheme();
+  });
+
+  applyTheme();
+}
+
+function resolveTheme(themeId: string, prefersDark: boolean): Theme {
+  const theme = hasTheme(themeId) ? themes[themeId] : undefined;
+  if (theme?.type === 'auto') {
+    return themes[prefersDark ? 'dark' : 'light'];
+  }
+  return theme || themes['light'];
+}
+
+// Registered once, at module scope, so a theme change repaints exactly one time
+// no matter how many components hold the composable.
+watch(activeThemeId, (themeId) => {
+  applyTheme(themeId);
+});
+
 // Theme manager composable
 export function useThemeManager() {
-  const activeThemeId = ref<string>(localStorage.getItem('activeTheme') || 'light');
-  const systemPrefersDark = ref(false);
-
-  // Initialize system preference detection
-  onMounted(() => {
-    if (typeof window !== 'undefined') {
-      // Check system preference
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      systemPrefersDark.value = mediaQuery.matches;
-
-      // Listen for changes
-      mediaQuery.addEventListener('change', (e) => {
-        systemPrefersDark.value = e.matches;
-        applyTheme();
-      });
-
-      // Apply initial theme
-      applyTheme();
-    }
-  });
+  // Only inside a component; the composable is also imported directly by tests.
+  if (getCurrentInstance()) {
+    onMounted(initClient);
+  } else {
+    initClient();
+  }
 
   // Get current theme (resolves auto to actual theme)
-  const currentTheme = computed((): Theme => {
-    const theme = themes[activeThemeId.value];
-    if (theme?.type === 'auto') {
-      return themes[systemPrefersDark.value ? 'dark' : 'light'];
-    }
-    return theme || themes['light'];
-  });
+  const currentTheme = computed((): Theme =>
+    resolveTheme(activeThemeId.value, systemPrefersDark.value)
+  );
 
   // Get active theme ID (resolved for auto)
   const activeThemeIdResolved = computed((): string => {
@@ -178,38 +285,9 @@ export function useThemeManager() {
   });
 
   // Get resolved theme object
-  const activeTheme = computed((): Theme => {
-    const theme = themes[activeThemeId.value];
-    if (theme?.type === 'auto') {
-      return themes[systemPrefersDark.value ? 'dark' : 'light'];
-    }
-    return theme || themes['light'];
-  });
-
-  // Apply theme to CSS variables
-  function applyTheme(themeId: string = activeThemeId.value): void {
-    if (typeof document === 'undefined') return;
-
-    const theme = themes[themeId];
-    let resolvedTheme = theme;
-
-    if (theme?.type === 'auto') {
-      resolvedTheme = themes[systemPrefersDark.value ? 'dark' : 'light'];
-    }
-
-    if (!resolvedTheme?.colors) return;
-
-    const root = document.documentElement;
-    const colors = resolvedTheme.colors as ColorPalette;
-
-    // Apply all CSS variables
-    Object.entries(colors).forEach(([key, value]) => {
-      root.style.setProperty(`--${key}`, value);
-    });
-
-    // Update localStorage
-    localStorage.setItem('activeTheme', themeId);
-  }
+  const activeTheme = computed((): Theme =>
+    resolveTheme(activeThemeId.value, systemPrefersDark.value)
+  );
 
   // Toggle between light/dark/auto
   function toggleTheme(): void {
@@ -221,18 +299,13 @@ export function useThemeManager() {
 
   // Set specific theme
   function setTheme(themeId: string): void {
-    if (themes[themeId]) {
+    if (hasTheme(themeId)) {
       activeThemeId.value = themeId;
     } else {
       console.warn(`Theme "${themeId}" not found, falling back to light`);
       activeThemeId.value = 'light';
     }
   }
-
-  // Watch for active theme changes and apply
-  watch(activeThemeId, () => {
-    applyTheme();
-  });
 
   return {
     activeThemeId,

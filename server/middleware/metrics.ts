@@ -30,7 +30,7 @@ const metrics: Metrics = {
 /**
  * Metrics middleware - collects performance data
  */
-export default defineEventHandler(async (event: H3Event): Promise<void> => {
+export default defineEventHandler((event: H3Event): void => {
   const start = performance.now();
 
   // Add encryption tracking
@@ -51,19 +51,20 @@ export default defineEventHandler(async (event: H3Event): Promise<void> => {
     metrics.cacheMisses++;
   }
 
-  try {
-    await next();
-  } finally {
-    const duration = performance.now() - start;
-
-    // Store request duration
-    metrics.requestDuration.push(duration);
+  // Nitro middleware cannot wrap the handlers that follow it: an h3 event
+  // handler is called with the event alone, there is no Connect-style `next`
+  // to await, and returning undefined is what hands the request on. Timing is
+  // therefore taken from the response lifecycle instead — `close` fires once
+  // the reply has been flushed, and also when the client disconnects early, so
+  // no request is left unmeasured.
+  event.node.res.once('close', () => {
+    metrics.requestDuration.push(performance.now() - start);
 
     // Trim long arrays to prevent memory leaks
     if (metrics.requestDuration.length > 1000) {
       metrics.requestDuration.shift();
     }
-  }
+  });
 });
 
 /**

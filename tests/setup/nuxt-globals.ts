@@ -7,6 +7,8 @@
  * tests exercise the real modules.
  */
 
+import { defineEventHandler, getHeader, getResponseHeader, setResponseHeaders } from 'h3';
+
 export interface TestRuntimeConfig {
   databasePath: string;
   ethRpcUrl: string;
@@ -66,3 +68,11 @@ globals.createError = (opts: { statusCode?: number; message?: string; data?: unk
 globals.getRequestIP = (event: { ip?: string } | undefined) => event?.ip ?? '127.0.0.1';
 globals.getRouterParam = (event: { params?: Record<string, string> } | undefined, key: string) =>
   event?.params?.[key];
+
+// Server middleware relies on the h3 helpers Nitro auto-imports. These are the
+// real implementations rather than stand-ins, so a middleware exercised in a
+// test behaves the way it does in the built server.
+globals.defineEventHandler = defineEventHandler;
+globals.getHeader = getHeader;
+globals.getResponseHeader = getResponseHeader;
+globals.setResponseHeaders = setResponseHeaders;

@@ -71,26 +71,21 @@ describe('Content Pipeline Integration', () => {
         './server/api/projects/import-gitbook.post.ts',
         './server/api/projects/import-html.post.ts',
       ];
-      endpoints.forEach(endpoint => {
+      endpoints.forEach((endpoint) => {
         expect(existsSync(endpoint)).toBe(true);
       });
     });
 
     it('has export API endpoints', () => {
-      const endpoints = [
-        './server/api/projects/[slug]/export-pdf.post.ts',
-      ];
-      endpoints.forEach(endpoint => {
+      const endpoints = ['./server/api/projects/[slug]/export-pdf.post.ts'];
+      endpoints.forEach((endpoint) => {
         expect(existsSync(endpoint)).toBe(true);
       });
     });
 
     it('has preview and sync API endpoints', () => {
-      const endpoints = [
-        './server/api/previews/index.post.ts',
-        './server/api/sync/index.post.ts',
-      ];
-      endpoints.forEach(endpoint => {
+      const endpoints = ['./server/api/previews/index.post.ts', './server/api/sync/index.post.ts'];
+      endpoints.forEach((endpoint) => {
         expect(existsSync(endpoint)).toBe(true);
       });
     });
@@ -100,15 +95,15 @@ describe('Content Pipeline Integration', () => {
     it('pipeline files exist with expected content', () => {
       // Verify that the key utility files exist and have typical exports
       const fs = require('fs');
-      
+
       const importContent = fs.readFileSync('./server/utils/import-unified.ts', 'utf8');
       expect(importContent).toContain('importContent');
       expect(importContent).toContain('detectFormat');
-      
+
       const pdfExport = fs.readFileSync('./server/utils/pdf-export.ts', 'utf8');
       expect(pdfExport).toContain('exportToPdf');
       expect(pdfExport).toContain('getAvailableThemes');
-      
+
       const staticExport = fs.readFileSync('./server/utils/static-export.ts', 'utf8');
       expect(staticExport).toContain('exportNuxt');
       expect(staticExport).toContain('exportVitePress');

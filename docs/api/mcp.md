@@ -11,11 +11,13 @@ The MCP server is available at: `{baseURL}/mcp`
 ## Connection
 
 ### Claude Code
+
 ```sh
 claude mcp add --transport http knowledgebook https://knowledgebook.plutolabs.app/mcp
 ```
 
 ### Manual Configuration
+
 ```json
 {
   "mcpServers": {
@@ -38,6 +40,7 @@ Lists all documentation projects on the KnowledgeBook instance.
 **Output:** List of projects with slug, name, description, and page count.
 
 **Example:**
+
 ```
 - My Project (project: my-project) — 5 pages
 - API Docs (project: api-docs) — 12 pages
@@ -48,6 +51,7 @@ Lists all documentation projects on the KnowledgeBook instance.
 Gets the section and page tree of a documentation project.
 
 **Input:**
+
 ```json
 {
   "project": "project-slug"
@@ -57,6 +61,7 @@ Gets the section and page tree of a documentation project.
 **Output:** Project structure with sections and page slugs.
 
 **Example:**
+
 ```
 # My Project (project: my-project)
 ## Getting Started
@@ -72,6 +77,7 @@ Gets the section and page tree of a documentation project.
 Reads the full markdown content of a documentation page.
 
 **Input:**
+
 ```json
 {
   "project": "project-slug",
@@ -82,6 +88,7 @@ Reads the full markdown content of a documentation page.
 **Output:** Complete page content with metadata.
 
 **Example:**
+
 ```
 Title: API Reference
 Project: my-project
@@ -98,6 +105,7 @@ This document describes...
 Searches across page titles and content.
 
 **Input:**
+
 ```json
 {
   "query": "search query",
@@ -108,6 +116,7 @@ Searches across page titles and content.
 **Output:** Matching pages with snippets.
 
 **Example:**
+
 ```
 - API Endpoints (project: my-project, page: endpoints)
   …API endpoints for managing documentation projects…
@@ -143,6 +152,7 @@ MCP errors follow the JSON-RPC 2.0 format:
 ## Usage Examples
 
 ### Python
+
 ```python
 import requests
 import json
@@ -181,56 +191,54 @@ print(result)
 ```
 
 ### JavaScript
+
 ```javascript
 async function callMcpTool(url, toolName, params = null) {
   const headers = {
     'Content-Type': 'application/json',
-    'Accept': 'application/json, text/event-stream'
+    Accept: 'application/json, text/event-stream',
   };
   const payload = {
     jsonrpc: '2.0',
     method: 'tools/call',
     params: {
       name: toolName,
-      arguments: params || {}
+      arguments: params || {},
     },
-    id: 1
+    id: 1,
   };
-  
+
   const response = await fetch(url, {
     method: 'POST',
     headers,
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
   });
-  
+
   return await response.json();
 }
 
 // List projects
-const projects = await callMcpTool(
-  'https://knowledgebook.plutolabs.app/mcp',
-  'list_projects'
-);
+const projects = await callMcpTool('https://knowledgebook.plutolabs.app/mcp', 'list_projects');
 console.log(projects);
 
 // Get project structure
-const project = await callMcpTool(
-  'https://knowledgebook.plutolabs.app/mcp',
-  'get_project',
-  { project: 'my-project' }
-);
+const project = await callMcpTool('https://knowledgebook.plutolabs.app/mcp', 'get_project', {
+  project: 'my-project',
+});
 console.log(project);
 ```
 
 ## MCP Protocol Version
 
 The server implements MCP protocol version compatible with:
+
 - `@modelcontextprotocol/sdk` v1.29.0+
 - Claude Code 2.3+
 
 ## Self-Hosted MCP
 
 When self-hosting KnowledgeBook, the MCP server is available at:
+
 - Development: `http://localhost:3000/mcp`
 - Production: `{your-domain}/mcp`
 

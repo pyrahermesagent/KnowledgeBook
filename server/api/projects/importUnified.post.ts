@@ -7,7 +7,7 @@ import { defineEventHandler, readBody } from 'h3';
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event);
   const body = await readBody(event);
-  
+
   // Validate request
   if (!body.content && !body.url && !body.uploadId) {
     setResponseStatus(event, 400);
@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
       error: 'Content, URL, or upload ID is required for import',
     };
   }
-  
+
   // Build import options
   const options: any = {
     ownerId: user.id,
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
     content: body.content,
     file: body.file || undefined,
   };
-  
+
   // Handle file upload from temporary storage
   if (body.uploadId) {
     // In a real implementation, fetch the uploaded file from storage
@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
       error: 'File upload not yet implemented',
     };
   }
-  
+
   // Validate request
   const { valid, errors } = validateImportRequest(options);
   if (!valid) {
@@ -48,11 +48,11 @@ export default defineEventHandler(async (event) => {
       errors,
     };
   }
-  
+
   try {
     // Import content
     const result = await importContent(options);
-    
+
     return {
       success: true,
       ...result,

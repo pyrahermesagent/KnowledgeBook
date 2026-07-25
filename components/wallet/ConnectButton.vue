@@ -1,47 +1,47 @@
 <script setup lang="ts">
-const walletAddress = ref<string | null>(null)
-const chainId = ref<number>(1)
-const isConnected = computed(() => !!walletAddress.value)
-const isLoading = ref(false)
+const walletAddress = ref<string | null>(null);
+const chainId = ref<number>(1);
+const isConnected = computed(() => !!walletAddress.value);
+const isLoading = ref(false);
 
-const emit = defineEmits(['connect', 'disconnect'])
+const emit = defineEmits(['connect', 'disconnect']);
 
 /** Shorten an address for display: 0x1234…abcd */
 const formatAddress = (address: string): string =>
-  address.length > 10 ? `${address.slice(0, 6)}…${address.slice(-4)}` : address
+  address.length > 10 ? `${address.slice(0, 6)}…${address.slice(-4)}` : address;
 
 // Check if wallet is already connected in session
 const checkConnection = async () => {
   // TODO: Check session for wallet connection
-}
+};
 
 const connectWallet = async () => {
   if (!window.ethereum) {
-    throw new Error('Ethereum wallet not found. Please install MetaMask or another Web3 wallet.')
+    throw new Error('Ethereum wallet not found. Please install MetaMask or another Web3 wallet.');
   }
 
-  isLoading.value = true
+  isLoading.value = true;
 
   try {
     // Request account connection
-    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-    const address = accounts[0]
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    const address = accounts[0];
 
     // Get chain ID
-    const chainIdRaw = await window.ethereum.request({ method: 'eth_chainId' })
-    chainId.value = parseInt(chainIdRaw, 16)
+    const chainIdRaw = await window.ethereum.request({ method: 'eth_chainId' });
+    chainId.value = parseInt(chainIdRaw, 16);
 
     // Get login message from backend
     const { message } = await $fetch('/api/auth/wallet/login-message', {
       method: 'POST',
-      body: JSON.stringify({ address })
-    })
+      body: JSON.stringify({ address }),
+    });
 
     // Sign message
     const signature = await window.ethereum.request({
       method: 'personal_sign',
-      params: [message, address]
-    })
+      params: [message, address],
+    });
 
     // Send to backend for verification
     const result = await $fetch('/api/auth/wallet/login', {
@@ -50,45 +50,40 @@ const connectWallet = async () => {
         address,
         signature,
         message,
-        chainId: chainId.value
-      })
-    })
+        chainId: chainId.value,
+      }),
+    });
 
     // Trust the address the server recovered from the signature, not the one
     // the injected provider reported.
-    walletAddress.value = result.wallet.address
-    chainId.value = result.wallet.chain_id
-    emit('connect', { address: result.wallet.address, chainId: chainId.value })
+    walletAddress.value = result.wallet.address;
+    chainId.value = result.wallet.chain_id;
+    emit('connect', { address: result.wallet.address, chainId: chainId.value });
   } catch (error: any) {
-    console.error('Wallet connection failed:', error)
-    throw error
+    console.error('Wallet connection failed:', error);
+    throw error;
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
-}
+};
 
 const disconnect = async () => {
   try {
-    await $fetch('/api/auth/wallet/logout', { method: 'POST' })
-    walletAddress.value = null
-    emit('disconnect')
+    await $fetch('/api/auth/wallet/logout', { method: 'POST' });
+    walletAddress.value = null;
+    emit('disconnect');
   } catch (error) {
-    console.error('Wallet disconnection failed:', error)
+    console.error('Wallet disconnection failed:', error);
   }
-}
+};
 
 // Auto-check connection on mount
-onMounted(checkConnection)
+onMounted(checkConnection);
 </script>
 
 <template>
   <div class="wallet-connect">
-    <button
-      v-if="!isConnected"
-      :disabled="isLoading"
-      @click="connectWallet"
-      class="connect-btn"
-    >
+    <button v-if="!isConnected" :disabled="isLoading" @click="connectWallet" class="connect-btn">
       <span v-if="isLoading">Connecting...</span>
       <span v-else>Connect Wallet</span>
     </button>
@@ -96,9 +91,7 @@ onMounted(checkConnection)
     <div v-else class="connected-wallet">
       <span class="wallet-address">{{ formatAddress(walletAddress!) }}</span>
       <span class="chain-badge">{{ chainId }}</span>
-      <button @click="disconnect" class="disconnect-btn">
-        Disconnect
-      </button>
+      <button @click="disconnect" class="disconnect-btn">Disconnect</button>
     </div>
   </div>
 </template>

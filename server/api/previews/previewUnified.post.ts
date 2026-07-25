@@ -7,7 +7,7 @@ import { defineEventHandler, readBody } from 'h3';
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event);
   const body = await readBody(event);
-  
+
   // Validate request
   if (!body.projectSlug) {
     setResponseStatus(event, 400);
@@ -16,14 +16,18 @@ export default defineEventHandler(async (event) => {
       error: 'Project slug is required for preview',
     };
   }
-  
+
   // Get project and sections from database
   const db = useDb();
-  
-  const project = db.prepare(`
+
+  const project = db
+    .prepare(
+      `
     SELECT * FROM projects WHERE slug = ? AND owner_id = ?
-  `).get(body.projectSlug, user.id) as any;
-  
+  `
+    )
+    .get(body.projectSlug, user.id) as any;
+
   if (!project) {
     setResponseStatus(event, 404);
     return {
@@ -31,8 +35,10 @@ export default defineEventHandler(async (event) => {
       error: 'Project not found',
     };
   }
-  
-  const sections = db.prepare(`
+
+  const sections = db
+    .prepare(
+      `
     SELECT s.*, json_group_array(json_object(
       'id', p.id, 'slug', p.slug, 'title', p.title, 
       'content', p.content, 'position', p.position
@@ -44,8 +50,10 @@ export default defineEventHandler(async (event) => {
     )
     GROUP BY s.id
     ORDER BY s.position
-  `).all(project.id) as any;
-  
+  `
+    )
+    .all(project.id) as any;
+
   // Generate preview
   const result = await previewContent({
     format: body.format || 'web',
@@ -53,7 +61,7 @@ export default defineEventHandler(async (event) => {
     sections,
     theme: body.theme,
   });
-  
+
   return {
     success: result.success,
     ...result,

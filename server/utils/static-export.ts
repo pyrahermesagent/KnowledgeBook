@@ -3,9 +3,8 @@
 // - VitePress: Compatible with VitePress deployment
 // - Plain HTML: Simple static pages
 
-import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync, createWriteStream } from 'fs';
-import { join, dirname, resolve } from 'path';
-import { URL } from 'url';
+import { existsSync, mkdirSync, writeFileSync, rmSync, createWriteStream } from 'fs';
+import { join, dirname } from 'path';
 import { spawn } from 'child_process';
 import MarkdownIt from 'markdown-it';
 import archiver from 'archiver';
@@ -67,18 +66,24 @@ interface ExportResult {
  */
 function getProjectBySlug(slug: string): ProjectData | undefined {
   const db = useDb();
-  
-  const project = db.prepare(`
+
+  const project = db
+    .prepare(
+      `
     SELECT id, slug, name, description, accent_color, icon_url, 
            font_family, bg_color, bg_subtle, text_color, text_muted,
            border_color, radius
     FROM projects WHERE slug = ?
-  `).get(slug) as any;
-  
+  `
+    )
+    .get(slug) as any;
+
   if (!project) return undefined;
-  
+
   // Get sections with pages
-  const sections = db.prepare(`
+  const sections = db
+    .prepare(
+      `
     SELECT s.id, s.project_id, s.title, s.position,
            (SELECT json_group_array(json_object(
              'id', p.id, 'project_id', p.project_id, 
@@ -90,10 +95,14 @@ function getProjectBySlug(slug: string): ProjectData | undefined {
     FROM sections s 
     WHERE s.project_id = ?
     ORDER BY s.position
-  `).all(project.id) as any[];
-  
+  `
+    )
+    .all(project.id) as any[];
+
   // Get root pages (no section)
-  const rootPages = db.prepare(`
+  const rootPages = db
+    .prepare(
+      `
     SELECT json_group_array(json_object(
       'id', id, 'project_id', project_id, 
       'section_id', section_id, 'slug', slug, 
@@ -102,32 +111,34 @@ function getProjectBySlug(slug: string): ProjectData | undefined {
     ))
     FROM pages WHERE project_id = ? AND section_id IS NULL
     ORDER BY position
-  `).get(project.id) as any;
-  
+  `
+    )
+    .get(project.id) as any;
+
   const rootSection: SectionData = {
     id: 0,
     project_id: project.id,
     title: null as any,
     position: -1,
-    pages: rootPages ? JSON.parse(rootPages) : []
+    pages: rootPages ? JSON.parse(rootPages) : [],
   };
-  
+
   const sectionList = sections.map((s: any) => ({
     id: s.id,
     project_id: s.project_id,
     title: s.title,
     position: s.position,
-    pages: s.pages_json ? JSON.parse(s.pages_json) : []
+    pages: s.pages_json ? JSON.parse(s.pages_json) : [],
   }));
-  
+
   // Add root section if it has pages
   if (rootSection.pages.length > 0) {
     sectionList.unshift(rootSection);
   }
-  
+
   return {
     ...project,
-    sections: sectionList
+    sections: sectionList,
   };
 }
 
@@ -138,9 +149,9 @@ function convertMarkdownToHtml(markdown: string): string {
   const md = MarkdownIt({
     html: true,
     breaks: true,
-    linkify: true
+    linkify: true,
   });
-  
+
   // Add custom rules for image sizing
   md.rules.core.state.tokens.forEach((token: any) => {
     if (token.type === 'image') {
@@ -150,7 +161,7 @@ function convertMarkdownToHtml(markdown: string): string {
       }
     }
   });
-  
+
   return md.render(markdown);
 }
 
@@ -169,17 +180,17 @@ function generateProjectMetadata(project: ProjectData): Record<string, any> {
       textColor: project.text_color,
       textColorMuted: project.text_muted,
       borderColor: project.border_color,
-      radius: project.radius
+      radius: project.radius,
     },
-    pages: project.sections.flatMap((s: SectionData) => 
+    pages: project.sections.flatMap((s: SectionData) =>
       s.pages.map((p: PageData) => ({
         slug: p.slug,
         title: p.title,
         section: s.title || 'root',
-        position: p.position
+        position: p.position,
       }))
     ),
-    generated: new Date().toISOString()
+    generated: new Date().toISOString(),
   };
 }
 
@@ -194,22 +205,22 @@ async function exportNuxt(project: ProjectData, options: ExportOptions): Promise
     filesGenerated: 0,
     pagesExported: 0,
     sectionsExported: project.sections.length,
-    errors: []
+    errors: [],
   };
 
   try {
     const publicDir = join(options.outputDir, 'public');
     const pagesDir = join(options.outputDir, 'pages');
     const assetsDir = join(options.outputDir, 'assets');
-    
+
     mkdirSync(publicDir, { recursive: true });
     mkdirSync(pagesDir, { recursive: true });
     mkdirSync(assetsDir, { recursive: true });
-    
+
     // Write project metadata
     const metadata = generateProjectMetadata(project);
     writeFileSync(join(publicDir, 'project.json'), JSON.stringify(metadata, null, 2));
-    
+
     // Generate Nuxt configuration
     const nuxtConfig = `export default defineNuxtConfig({
   compatibilityDate: '2026-07-01',
@@ -220,7 +231,7 @@ async function exportNuxt(project: ProjectData, options: ExportOptions): Promise
   }
 });`;
     writeFileSync(join(options.outputDir, 'nuxt.config.ts'), nuxtConfig);
-    
+
     // Generate layout
     const layout = `<template>
   <div class="layout" :style="themeStyles">
@@ -251,7 +262,7 @@ const themeStyles = {
 `;
     writeFileSync(join(options.outputDir, 'layouts', 'default.vue'), layout);
     mkdirSync(join(options.outputDir, 'layouts'), { recursive: true });
-    
+
     // Generate pages for each section
     let pageCount = 0;
     for (const section of project.sections) {
@@ -285,9 +296,9 @@ export default {
         pageCount++;
       }
     }
-    
+
     result.pagesExported = pageCount;
-    
+
     // Copy CSS assets if requested
     if (options.includeAssets) {
       const cssContent = `\
@@ -315,7 +326,6 @@ body {
       writeFileSync(join(assetsDir, 'main.css'), cssContent);
       result.filesGenerated++;
     }
-    
   } catch (error) {
     result.success = false;
     result.errors.push((error as Error).message);
@@ -327,7 +337,10 @@ body {
 /**
  * Export as VitePress site
  */
-async function exportVitePress(project: ProjectData, options: ExportOptions): Promise<ExportResult> {
+async function exportVitePress(
+  project: ProjectData,
+  options: ExportOptions
+): Promise<ExportResult> {
   const result: ExportResult = {
     success: true,
     format: 'vitepress',
@@ -335,16 +348,16 @@ async function exportVitePress(project: ProjectData, options: ExportOptions): Pr
     filesGenerated: 0,
     pagesExported: 0,
     sectionsExported: project.sections.length,
-    errors: []
+    errors: [],
   };
 
   try {
     const docsDir = join(options.outputDir, 'docs');
     const configDir = join(options.outputDir, '.vitepress');
-    
+
     mkdirSync(docsDir, { recursive: true });
     mkdirSync(configDir, { recursive: true });
-    
+
     // Generate config.ts
     const config = `\
 import DefaultTheme from 'vitepress/theme'
@@ -356,7 +369,7 @@ export default {
 }
 `;
     writeFileSync(join(configDir, 'config.ts'), config);
-    
+
     // Generate custom.css
     const css = `\
 :root {
@@ -370,7 +383,7 @@ export default {
 }
 `;
     writeFileSync(join(configDir, 'custom.css'), css);
-    
+
     // Generate custom.js
     const js = `\
 import DefaultTheme from 'vitepress/theme'
@@ -380,7 +393,7 @@ export default {
 }
 `;
     writeFileSync(join(configDir, 'custom.js'), js);
-    
+
     // Generate index.md
     const indexContent = `\
 # ${project.name}
@@ -393,14 +406,14 @@ This documentation was exported from KnowledgeBook.
 `;
     writeFileSync(join(docsDir, 'index.md'), indexContent);
     result.filesGenerated += 3;
-    
+
     // Generate pages for each section
     let pageCounter = 0;
     for (const section of project.sections) {
       if (section.title) {
         const sectionDir = join(docsDir, section.slug || `section-${section.position}`);
         mkdirSync(sectionDir, { recursive: true });
-        
+
         const sidebarContent = `\
 # ${section.title}
 
@@ -409,9 +422,10 @@ This section contains ${section.pages.length} pages.
         writeFileSync(join(sectionDir, 'index.md'), sidebarContent);
         result.filesGenerated++;
       }
-      
+
       for (const page of section.pages) {
-        const pagePath = join(docsDir, 
+        const pagePath = join(
+          docsDir,
           section.title ? `${section.slug || `section-${section.position}`}` : '.',
           `${page.slug}.md`
         );
@@ -428,9 +442,8 @@ last_updated: ${new Date(page.updated_at).toISOString()}
         pageCounter++;
       }
     }
-    
+
     result.pagesExported = pageCounter;
-    
   } catch (error) {
     result.success = false;
     result.errors.push((error as Error).message);
@@ -442,7 +455,10 @@ last_updated: ${new Date(page.updated_at).toISOString()}
 /**
  * Export as Plain HTML site
  */
-async function exportPlainHTML(project: ProjectData, options: ExportOptions): Promise<ExportResult> {
+async function exportPlainHTML(
+  project: ProjectData,
+  options: ExportOptions
+): Promise<ExportResult> {
   const result: ExportResult = {
     success: true,
     format: 'plain',
@@ -450,15 +466,14 @@ async function exportPlainHTML(project: ProjectData, options: ExportOptions): Pr
     filesGenerated: 0,
     pagesExported: 0,
     sectionsExported: project.sections.length,
-    errors: []
+    errors: [],
   };
 
   try {
     const publicDir = join(options.outputDir, 'public');
     mkdirSync(publicDir, { recursive: true });
-    
+
     // Generate index.html
-    const projectMetadata = generateProjectMetadata(project);
     const indexContent = `\
 <!DOCTYPE html>
 <html lang="en">
@@ -508,11 +523,11 @@ async function exportPlainHTML(project: ProjectData, options: ExportOptions): Pr
     <nav>
       <h2>Table of Contents</h2>
       <ul>
-        ${project.sections.flatMap((s: SectionData) => 
-          s.pages.map((p: PageData) => 
-            `<li><a href="${p.slug}.html">${p.title}</a></li>`
+        ${project.sections
+          .flatMap((s: SectionData) =>
+            s.pages.map((p: PageData) => `<li><a href="${p.slug}.html">${p.title}</a></li>`)
           )
-        ).join('\n        ')}
+          .join('\n        ')}
       </ul>
     </nav>
     
@@ -524,13 +539,15 @@ async function exportPlainHTML(project: ProjectData, options: ExportOptions): Pr
   </div>
   
   <script>
-    const pages = ${JSON.stringify(project.sections.flatMap((s: SectionData) => 
-      s.pages.map((p: PageData) => ({
-        slug: p.slug,
-        title: p.title,
-        content: p.content
-      }))
-    ))};
+    const pages = ${JSON.stringify(
+      project.sections.flatMap((s: SectionData) =>
+        s.pages.map((p: PageData) => ({
+          slug: p.slug,
+          title: p.title,
+          content: p.content,
+        }))
+      )
+    )};
     
     const urlParams = new URLSearchParams(window.location.search);
     const pageSlug = urlParams.get('page') || '${project.sections[0]?.pages[0]?.slug || ''}';
@@ -550,7 +567,7 @@ async function exportPlainHTML(project: ProjectData, options: ExportOptions): Pr
 `;
     writeFileSync(join(publicDir, 'index.html'), indexContent);
     result.filesGenerated++;
-    
+
     // Generate individual page HTML files
     let pageCounter = 0;
     for (const section of project.sections) {
@@ -620,9 +637,8 @@ async function exportPlainHTML(project: ProjectData, options: ExportOptions): Pr
         pageCounter++;
       }
     }
-    
+
     result.pagesExported = pageCounter;
-    
   } catch (error) {
     result.success = false;
     result.errors.push((error as Error).message);
@@ -639,7 +655,7 @@ export async function exportStaticSite(
   options: ExportOptions
 ): Promise<ExportResult> {
   const project = getProjectBySlug(projectSlug);
-  
+
   if (!project) {
     return {
       success: false,
@@ -648,7 +664,7 @@ export async function exportStaticSite(
       filesGenerated: 0,
       pagesExported: 0,
       sectionsExported: 0,
-      errors: ['Project not found']
+      errors: ['Project not found'],
     };
   }
 
@@ -674,7 +690,7 @@ export async function exportStaticSite(
         filesGenerated: 0,
         pagesExported: 0,
         sectionsExported: 0,
-        errors: [`Unsupported format: ${options.format}`]
+        errors: [`Unsupported format: ${options.format}`],
       };
   }
 }
@@ -725,7 +741,7 @@ export async function previewSite(
   port: number = 3000
 ): Promise<{ success: boolean; url?: string; errors: string[] }> {
   const result = { success: false, errors: [] as string[] };
-  
+
   try {
     let command: string;
     let args: string[];
@@ -747,9 +763,9 @@ export async function previewSite(
         result.errors.push(`Unsupported format for preview: ${format}`);
         return result;
     }
-    
+
     const child = spawn(command, args, { stdio: 'pipe', cwd: outputDir });
-    
+
     child.stdout.on('data', (data: Buffer) => {
       const output = data.toString();
       console.log(output);
@@ -757,14 +773,13 @@ export async function previewSite(
         result.success = true;
       }
     });
-    
+
     child.stderr.on('data', (data: Buffer) => {
       console.error(data.toString());
     });
-    
   } catch (error) {
     result.errors.push((error as Error).message);
   }
-  
+
   return result;
 }

@@ -13,13 +13,13 @@ The optimizations focus on reducing encryption/decryption overhead while maintai
 
 ## Performance Targets
 
-| Metric | Target | Actual (Estimated) |
-|--------|--------|-------------------|
-| Page load time | ≤200ms | ~150ms |
-| Encryption overhead | ≤50ms | ~25ms |
-| Concurrent requests | ≥100 req/s | ~150 req/s |
-| Database queries | ≤10ms/op | ~5ms/op |
-| Cache hit rate | ≥80% | ~85% |
+| Metric              | Target     | Actual (Estimated) |
+| ------------------- | ---------- | ------------------ |
+| Page load time      | ≤200ms     | ~150ms             |
+| Encryption overhead | ≤50ms      | ~25ms              |
+| Concurrent requests | ≥100 req/s | ~150 req/s         |
+| Database queries    | ≤10ms/op   | ~5ms/op            |
+| Cache hit rate      | ≥80%       | ~85%               |
 
 ## Implementation Details
 
@@ -33,6 +33,7 @@ The optimizations focus on reducing encryption/decryption overhead while maintai
 - Automatic refresh on key rotation
 
 **Performance Impact**:
+
 - Reduces database queries by 90%+
 - Key lookup: <1ms (cached) vs ~5ms (database)
 
@@ -46,6 +47,7 @@ The optimizations focus on reducing encryption/decryption overhead while maintai
 - Cache hit/miss tracking
 
 **Performance Impact**:
+
 - Eliminates decryption for cached content
 - Reduces server load by 50%+
 
@@ -62,6 +64,7 @@ CREATE INDEX idx_encryption_keys_updated ON encryption_keys (updated_at);
 ```
 
 **Performance Impact**:
+
 - Query optimization for encryption-related queries
 - Reduces query time from ~20ms to ~5ms
 
@@ -74,6 +77,7 @@ CREATE INDEX idx_encryption_keys_updated ON encryption_keys (updated_at);
 - Optimized pragmas for performance
 
 **Configuration**:
+
 ```typescript
 db.pragma('journal_mode = WAL');
 db.pragma('synchronous = NORMAL');
@@ -89,6 +93,7 @@ db.pragma('cache_size = -64000'); // 64MB cache
 - Progress tracking for long operations
 
 **Performance Impact**:
+
 - 10 pages: 5x faster than sequential
 - Memory efficient with chunking
 
@@ -109,6 +114,7 @@ db.pragma('cache_size = -64000'); // 64MB cache
 - Client-side encryption with nonce tracking
 
 **Features**:
+
 - AES-256-GCM encryption
 - Per-file nonce (unique IV)
 - Metadata stored in S3 object headers
@@ -118,19 +124,21 @@ db.pragma('cache_size = -64000'); // 64MB cache
 **File**: `server/middleware/metrics.ts`
 
 Tracks:
+
 - Request duration (histogram)
 - Encrypted requests count
 - Cache hit/miss ratio
 - Decryption operation duration
 
 **Integration**:
+
 ```typescript
 // Add to nuxt.config.ts middleware
 export default defineNuxtConfig({
   middleware: {
-    'metrics': true
-  }
-})
+    metrics: true,
+  },
+});
 ```
 
 ## Benchmarking
@@ -171,19 +179,21 @@ console.log({
   avgRequestDuration: metrics.avgRequestDuration, // ms
   encryptedRequests: metrics.encryptedRequests,
   cacheHitRate: metrics.cacheHitRate,
-  metricsWindow: metrics.metricsWindow
+  metricsWindow: metrics.metricsWindow,
 });
 ```
 
 ### Database Query Optimization
 
 Check slow queries:
+
 ```sql
 SELECT * FROM sqlite_stat1;
 ANALYZE;
 ```
 
 Monitor connection pool:
+
 ```typescript
 import { getPoolStats } from '#server/utils/db';
 

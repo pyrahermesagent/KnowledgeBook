@@ -2,7 +2,7 @@
 // Converts Confluence XML export format to KB markdown structure
 
 // Confluence block types
-export type ConfluenceBlockType = 
+export type ConfluenceBlockType =
   | 'paragraph'
   | 'heading'
   | 'panel'
@@ -47,46 +47,46 @@ export interface ConfluenceExport {
 
 // Simple XML parser using DOMParser for Confluence exports
 // This avoids requiring external dependencies like xml2js
-function parseXml(xmlString: string): Document {
+export function parseXml(xmlString: string): Document {
   if (typeof DOMParser === 'undefined') {
     // Node.js environment - use a simple parser
     return parseXmlNodeJS(xmlString);
   }
   const parser = new DOMParser();
   const doc = parser.parseFromString(xmlString, 'text/xml');
-  
+
   // Check for parser errors
   const parserError = doc.querySelector('parsererror');
   if (parserError) {
     throw new Error(`XML Parse Error: ${parserError.textContent}`);
   }
-  
+
   return doc;
 }
 
 // Fallback XML parser for Node.js environment
-function parseXmlNodeJS(xmlString: string): Document {
+function parseXmlNodeJS(_xmlString: string): Document {
   // Use a simple string-based parser for basic Confluence XML
   // This handles the common Confluence export format
-  
+
   // Create a minimal document-like structure
   const doc: any = {
     documentElement: { tagName: 'root' },
-    querySelector: (selector: string) => null,
-    querySelectorAll: (selector: string) => [],
+    querySelector: (_selector: string) => null,
+    querySelectorAll: (_selector: string) => [],
   };
-  
+
   // For Node.js, we'd typically use xml2js, but since it's not available,
   // we provide a warning that the full parser requires xml2js
   console.warn('Using basic XML parser - some features may be limited');
-  
+
   return doc as unknown as Document;
 }
 
 // Extract data from parsed XML structure
-function extractConfluenceData(parsed: any): ConfluenceExport {
+export function extractConfluenceData(parsed: any): ConfluenceExport {
   const pages: ConfluencePage[] = [];
-  
+
   // Handle different Confluence export formats
   // Format 1: Single page export
   if (parsed.page) {
@@ -118,7 +118,7 @@ function extractConfluenceData(parsed: any): ConfluenceExport {
       }
     }
   }
-  
+
   return {
     pages,
     totalPages: pages.length,
@@ -128,7 +128,7 @@ function extractConfluenceData(parsed: any): ConfluenceExport {
 // Parse a single Confluence page
 function parseConfluencePage(pageXml: any): ConfluencePage | null {
   if (!pageXml) return null;
-  
+
   const page: ConfluencePage = {
     title: pageXml.title?.[0] || 'Untitled',
     content: '',
@@ -136,17 +136,17 @@ function parseConfluencePage(pageXml: any): ConfluencePage | null {
     created: pageXml.created?.[0],
     lastModified: pageXml.lastModified?.[0],
   };
-  
+
   // Extract content
   if (pageXml.content) {
     page.content = pageXml.content[0] || '';
   }
-  
+
   // Extract macros from content
   if (pageXml.macro) {
     page.macros = parseMacros(pageXml.macro);
   }
-  
+
   return page;
 }
 
@@ -155,19 +155,19 @@ function parseMacros(macros: any[]): ConfluenceMacro[] {
   return macros.map((macro: any) => {
     const name = macro.name?.[0] || 'unknown';
     const parameters = parseMacroParameters(macro.parameter);
-    
+
     // Get macro body content
     let body: string | undefined;
     if (macro.body) {
       body = macro.body[0] || '';
     }
-    
+
     // Get nested macros (for macros that can contain other macros)
     let children: ConfluenceMacro[] = [];
     if (macro.macro) {
       children = parseMacros(macro.macro);
     }
-    
+
     return {
       name,
       parameters,
@@ -180,52 +180,52 @@ function parseMacros(macros: any[]): ConfluenceMacro[] {
 // Parse macro parameters
 function parseMacroParameters(parameters: any[]): Record<string, string> {
   const result: Record<string, string> = {};
-  
+
   if (!parameters) return result;
-  
+
   const paramsArray = Array.isArray(parameters) ? parameters : [parameters];
-  
+
   for (const param of paramsArray) {
     const paramName = param.name?.[0] || 'unnamed';
     const paramValue = param['#text'] || param['_'] || '';
     result[paramName] = paramValue;
   }
-  
+
   return result;
 }
 
 // Convert Confluence macro to markdown
 export function macroToMarkdown(macro: ConfluenceMacro, depth: number = 0): string {
   const indent = '  '.repeat(depth);
-  
+
   switch (macro.name) {
     case 'code':
       return convertCodeMacro(macro);
-    
+
     case 'panel':
       return convertPanelMacro(macro);
-    
+
     case 'info':
     case 'warning':
     case 'note':
     case 'tip':
       return convertPanelMacro(macro);
-    
+
     case 'expand':
       return convertExpandMacro(macro);
-    
+
     case 'anchor':
       return convertAnchorMacro(macro);
-    
+
     case 'link':
       return convertLinkMacro(macro);
-    
+
     case 'table':
       return convertTableMacro(macro);
-    
+
     case 'emoji':
       return convertEmojiMacro(macro);
-    
+
     default:
       // Fallback: include macro name and body
       let result = '';
@@ -247,36 +247,35 @@ function convertCodeMacro(macro: ConfluenceMacro): string {
   const language = macro.parameters?.language || 'text';
   const code = macro.body || '';
   const lineNumbers = macro.parameters?.linenumbers === 'true' ? ' linenums' : '';
-  
+
   return `\`\`\`${language}${lineNumbers}\n${code}\n\`\`\``;
 }
 
 // Convert panel macro to markdown
 function convertPanelMacro(macro: ConfluenceMacro): string {
-  const panelType = getPanelType(macro.name);
   const title = macro.parameters?.title || '';
   const body = macro.body || '';
-  
+
   let result = '';
   if (title) {
     result += `**${title}**\n\n`;
   }
-  
+
   if (body) {
     result += `> ${body}`;
   }
-  
+
   return result;
 }
 
 // Get panel type emoji/syntax
-function getPanelType(name: string): string {
+export function getPanelType(name: string): string {
   const panelMap: Record<string, string> = {
-    'info': 'info',
-    'warning': 'warning', 
-    'note': 'note',
-    'tip': 'tip',
-    'panel': 'panel',
+    info: 'info',
+    warning: 'warning',
+    note: 'note',
+    tip: 'tip',
+    panel: 'panel',
   };
   return panelMap[name] || 'panel';
 }
@@ -285,7 +284,7 @@ function getPanelType(name: string): string {
 function convertExpandMacro(macro: ConfluenceMacro): string {
   const title = macro.parameters?.title || 'Expand';
   const body = macro.body || '';
-  
+
   return `<details>\n<summary>${title}</summary>\n\n${body}\n</details>`;
 }
 
@@ -305,11 +304,11 @@ function convertLinkMacro(macro: ConfluenceMacro): string {
 // Convert table macro to markdown
 function convertTableMacro(macro: ConfluenceMacro): string {
   let result = '';
-  
+
   // Find rows and cells
   const rows: string[] = [];
   let headers: string[] = [];
-  
+
   if (macro.children) {
     for (const child of macro.children) {
       if (child.name === 'row') {
@@ -321,7 +320,7 @@ function convertTableMacro(macro: ConfluenceMacro): string {
             }
           }
         }
-        
+
         // First row is usually headers
         if (rows.length === 0) {
           headers = cells;
@@ -331,7 +330,7 @@ function convertTableMacro(macro: ConfluenceMacro): string {
       }
     }
   }
-  
+
   if (headers.length > 0) {
     result += headers.join(' | ') + '\n';
     result += headers.map(() => '---').join(' | ') + '\n';
@@ -339,7 +338,7 @@ function convertTableMacro(macro: ConfluenceMacro): string {
       result += rows.join('\n');
     }
   }
-  
+
   return result;
 }
 
@@ -353,14 +352,14 @@ function convertEmojiMacro(macro: ConfluenceMacro): string {
 // Convert Confluence page to markdown
 export function pageToMarkdown(page: ConfluencePage): string {
   let markdown = `# ${page.title}\n\n`;
-  
+
   if (page.version) {
     markdown += `**Version:** ${page.version}\n\n`;
   }
-  
+
   // Process content with macros
   let content = page.content;
-  
+
   // Handle macros in content
   if (page.macros) {
     for (const macro of page.macros) {
@@ -369,9 +368,9 @@ export function pageToMarkdown(page: ConfluencePage): string {
       content = content.replace(/<ac:structured-macro/, macroMarkdown);
     }
   }
-  
+
   markdown += content;
-  
+
   return markdown.trim();
 }
 
@@ -381,23 +380,23 @@ export function handleConfluenceMacro(macro: ConfluenceMacro): string {
     case 'hint':
     case 'info':
       return `> [!INFO] ${macro.body || ''}`;
-    
+
     case 'warning':
     case 'note':
       return `> [!WARNING] ${macro.body || ''}`;
-    
+
     case 'tabs':
       return convertTabsMacro(macro);
-    
+
     case 'code':
       return convertCodeMacro(macro);
-    
+
     case 'panel':
       return convertPanelMacro(macro);
-    
+
     case 'anchor':
       return `<a id="${macro.parameters?.name || ''}"></a>`;
-    
+
     default:
       return macro.body || '';
   }
@@ -406,7 +405,7 @@ export function handleConfluenceMacro(macro: ConfluenceMacro): string {
 // Convert tabs macro to markdown
 function convertTabsMacro(macro: ConfluenceMacro): string {
   let result = '';
-  
+
   // Tabs in Confluence are typically implemented as expand macros
   if (macro.children) {
     for (const tab of macro.children) {
@@ -417,12 +416,14 @@ function convertTabsMacro(macro: ConfluenceMacro): string {
       }
     }
   }
-  
+
   return result.trim();
 }
 
 // Parse Confluence export directory
-export async function parseConfluenceExportDirectory(directoryPath: string): Promise<ConfluenceExport> {
+export async function parseConfluenceExportDirectory(
+  _directoryPath: string
+): Promise<ConfluenceExport> {
   // This would read XML files from directory
   // For now, return placeholder structure
   return {
@@ -441,14 +442,14 @@ export async function handleConfluenceImport(
     pages: [],
     sections: [],
   };
-  
+
   let pagePosition = 0;
-  
+
   // Convert all pages
   for (const page of confluenceData.pages) {
     const pageId = page.title.replace(/[^a-z0-9]/gi, '-').toLowerCase();
     pages[pageId] = pageToMarkdown(page);
-    
+
     projectStructure.pages.push({
       id: pageId,
       title: page.title,
@@ -456,7 +457,7 @@ export async function handleConfluenceImport(
       position: pagePosition++,
     });
   }
-  
+
   // Build project structure
   // Group pages by common prefixes (e.g., "API-", "Guide-")
   const sections: Record<string, string[]> = {};
@@ -470,7 +471,7 @@ export async function handleConfluenceImport(
       sections[prefix].push(page.title);
     }
   }
-  
+
   // Add sections to structure
   for (const [name, pagesInSection] of Object.entries(sections)) {
     projectStructure.sections.push({
@@ -478,7 +479,7 @@ export async function handleConfluenceImport(
       pages: pagesInSection,
     });
   }
-  
+
   return {
     success: true,
     pages,
@@ -488,14 +489,14 @@ export async function handleConfluenceImport(
 
 // Bulk import from directory archive
 export async function importConfluenceDirectory(
-  directoryPath: string
+  _directoryPath: string
 ): Promise<{ success: boolean; pages: Record<string, string>; files: string[] }> {
   // Implementation would:
   // 1. Read directory structure
   // 2. Parse XML files
   // 3. Convert to markdown
   // 4. Return structured result
-  
+
   return {
     success: false,
     pages: {},
@@ -506,28 +507,31 @@ export async function importConfluenceDirectory(
 // Validate Confluence export structure
 export function validateConfluenceStructure(data: any): boolean {
   if (!data) return false;
-  
+
   // Check for pages array
   if (data.pages) {
     return Array.isArray(data.pages);
   }
-  
+
   // Check for single page
   if (data.page) {
     return !!data.page.title;
   }
-  
+
   // Check for space content
   if (data.space && data.space.content) {
     return true;
   }
-  
+
   return false;
 }
 
 // Import error class for graceful error handling
 export class ConfluenceImportError extends Error {
-  constructor(message: string, public details?: any) {
+  constructor(
+    message: string,
+    public details?: any
+  ) {
     super(message);
     this.name = 'ConfluenceImportError';
   }

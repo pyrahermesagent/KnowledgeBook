@@ -23,6 +23,7 @@ Lists all projects the authenticated user owns or is a member of.
 **Authentication:** Required
 
 **Response:**
+
 ```json
 {
   "projects": [
@@ -56,6 +57,7 @@ Retrieves a specific project by slug.
 **Authentication:** Required (for owned projects)
 
 **Response:**
+
 ```json
 {
   "id": 1,
@@ -84,6 +86,7 @@ Creates a new documentation project.
 **Authentication:** Required
 
 **Request Body:**
+
 ```json
 {
   "name": "My New Project",
@@ -125,6 +128,7 @@ Imports an entire GitBook site as a new project.
 **Authentication:** Required
 
 **Request Body:**
+
 ```json
 {
   "gitbook_url": "https://example.gitbook.com/site",
@@ -146,6 +150,7 @@ Lists all sections in a project.
 **Authentication:** Required (project member)
 
 **Response:**
+
 ```json
 {
   "sections": [
@@ -169,6 +174,7 @@ Creates a new section.
 **Authentication:** Required (project member)
 
 **Request Body:**
+
 ```json
 {
   "title": "API Reference",
@@ -187,6 +193,7 @@ Updates section title or position.
 **Authentication:** Required (project member)
 
 **Request Body:**
+
 ```json
 {
   "title": "Updated Section Title",
@@ -215,6 +222,7 @@ Lists all pages in a project.
 **Authentication:** Required (project member)
 
 **Response:**
+
 ```json
 {
   "pages": [
@@ -241,6 +249,7 @@ Retrieves a specific page by slug.
 **Authentication:** Required (project member)
 
 **Response:**
+
 ```json
 {
   "id": 1,
@@ -263,6 +272,7 @@ Creates a new page.
 **Authentication:** Required (project member)
 
 **Request Body:**
+
 ```json
 {
   "title": "API Reference",
@@ -284,6 +294,7 @@ Updates page content or metadata.
 **Authentication:** Required (project member)
 
 **Request Body:**
+
 ```json
 {
   "title": "Updated Title",
@@ -313,6 +324,7 @@ Lists all members of a project.
 **Authentication:** Required (project member)
 
 **Response:**
+
 ```json
 {
   "members": [
@@ -336,6 +348,7 @@ Adds a member to a project.
 **Authentication:** Required (project admin only)
 
 **Request Body:**
+
 ```json
 {
   "email": "newmember@example.com",
@@ -368,6 +381,7 @@ Uploads a file (images, documents).
 **Request Body:** `multipart/form-data` with `file` field
 
 **Response:**
+
 ```json
 {
   "url": "https://storage.example.com/path/to/file.png",
@@ -388,6 +402,7 @@ Retrieves the custom theme settings for a project.
 **Authentication:** Required (project member)
 
 **Response:**
+
 ```json
 {
   "accent_color": "#34c759",
@@ -410,6 +425,7 @@ Updates theme settings.
 **Authentication:** Required (project admin only)
 
 **Request Body:**
+
 ```json
 {
   "accent_color": "#34c759",
@@ -432,6 +448,7 @@ Authenticates a user via cryptocurrency wallet signature.
 **Endpoint:** `POST /api/auth/wallet/login`
 
 **Request Body:**
+
 ```json
 {
   "address": "0x...",
@@ -441,6 +458,7 @@ Authenticates a user via cryptocurrency wallet signature.
 ```
 
 **Response:**
+
 ```json
 {
   "token": "session_token",
@@ -466,6 +484,7 @@ All endpoints return standard HTTP status codes:
 - `500 Internal Server Error` - Server error
 
 Error response format:
+
 ```json
 {
   "error": "Error message",

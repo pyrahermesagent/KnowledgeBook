@@ -69,9 +69,9 @@ function getPrintTheme(theme?: string): string {
 /**
  * Generate HTML for table of contents
  */
-function generateToc(sections: any[]): string {
+export function generateToc(sections: any[]): string {
   const tocItems = sections
-    .flatMap(section => [
+    .flatMap((section) => [
       { title: section.title, level: 1, pages: section.pages || [] },
       ...(section.pages || []).map((page: any) => ({
         title: page.title,
@@ -83,7 +83,7 @@ function generateToc(sections: any[]): string {
       (item, index) =>
         `<li class="toc-item toc-level-${item.level}" data-level="${item.level}">
           <a href="#page-${index + 1}">${escapeHtml(item.title)}</a>
-        </li>`,
+        </li>`
     )
     .join('');
 
@@ -115,14 +115,14 @@ function escapeHtml(text: string): string {
  */
 export async function generateHtmlForPdf(project: any, sections: any[]): Promise<string> {
   const themeStyle = getPrintTheme(project.theme);
-  
+
   // Get all pages content
   const pagesHtml = sections
-    .flatMap(section =>
-      (section.pages || []).map(page => ({
+    .flatMap((section) =>
+      (section.pages || []).map((page) => ({
         ...page,
         section: section.title,
-      })),
+      }))
     )
     .map(
       (page, index) => `
@@ -134,7 +134,7 @@ export async function generateHtmlForPdf(project: any, sections: any[]): Promise
           <span class="page-slug">${escapeHtml(page.slug)}</span>
         </div>
       </section>
-    `,
+    `
     )
     .join('');
 
@@ -151,19 +151,18 @@ export async function generateHtmlForPdf(project: any, sections: any[]): Promise
             <ol>
               ${(section.pages || [])
                 .map(
-                  (page: any, pIndex: number) => `
+                  (page: any) => `
                 <li class="toc-page">
                   <a href="#page-${pagesHtml.indexOf(
-                    pagesHtml.find((p: any) => p.includes(`id="page-${sIndex + 1}`),
-                  )!,
+                    pagesHtml.find((p: any) => p.includes(`id="page-${sIndex + 1}`))!
                   )}">${escapeHtml(page.title)}</a>
                 </li>
-              `,
+              `
                 )
                 .join('')}
             </ol>
           </li>
-        `,
+        `
           )
           .join('')}
       </ol>
@@ -226,11 +225,9 @@ export async function generateHtmlForPdf(project: any, sections: any[]): Promise
 export async function exportToPdf(
   project: any,
   sections: any[],
-  options: PdfExportOptions = {},
+  options: PdfExportOptions = {}
 ): Promise<PdfExportResult> {
   const {
-    theme = 'default',
-    includeToc = true,
     headers = {},
     footer = {},
     pageSize = DEFAULT_PAPER_SIZE,
@@ -243,20 +240,15 @@ export async function exportToPdf(
   // Launch browser
   const browser = await puppeteer.launch({
     headless: 'new',
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-    ],
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
   });
 
   try {
     const page = await browser.newPage();
-    
+
     // Set page size and margins
     await page.setViewport({ width: 800, height: 1000 });
-    
+
     // Set PDF settings
     const pdfSettings: puppeteer.PDFOptions = {
       path: '',
@@ -271,7 +263,7 @@ export async function exportToPdf(
       },
       headerTemplate: headers.center
         ? `<div style="width: 100%; text-align: center; font-size: 10px;">${escapeHtml(
-            headers.center,
+            headers.center
           )}</div>`
         : undefined,
       footerTemplate: footer.pageNum
@@ -282,7 +274,7 @@ export async function exportToPdf(
       `
         : footer.center
           ? `<div style="width: 100%; text-align: center; font-size: 10px;">${escapeHtml(
-              footer.center,
+              footer.center
             )}</div>`
           : undefined,
     };
@@ -296,7 +288,7 @@ export async function exportToPdf(
     // Save to file
     const outputDir = resolve(useRuntimeConfig().public.outputDir, 'exports', 'pdf');
     mkdirSync(outputDir, { recursive: true });
-    
+
     const fileName = `${project.slug}-${new Date().toISOString().split('T')[0]}.pdf`;
     const pdfPath = join(outputDir, fileName);
     writeFileSync(pdfPath, pdfBuffer);

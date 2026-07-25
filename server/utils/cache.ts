@@ -76,19 +76,19 @@ export class Cache {
    */
   get(key: string): string | null {
     const entry = this.store.get(key);
-    
+
     if (!entry) return null;
-    
+
     // Check if expired
     if (Date.now() - entry.timestamp > entry.ttl) {
       this.store.delete(key);
       return null;
     }
-    
+
     // Move to end (most recently used)
     this.store.delete(key);
     this.store.set(key, entry);
-    
+
     return entry.value;
   }
 
@@ -100,14 +100,14 @@ export class Cache {
     if (this.store.has(key)) {
       this.store.delete(key);
     }
-    
+
     // Evict oldest entries if at capacity
     while (this.store.size >= this.maxSize) {
       const oldest = this.store.keys().next();
       if (oldest.done) break; // empty map — nothing left to evict
       this.store.delete(oldest.value);
     }
-    
+
     this.store.set(key, {
       value,
       timestamp: Date.now(),
@@ -167,15 +167,15 @@ export async function cachedSearch(
 ): Promise<{ results: string[]; query: string }> {
   const cacheKey = generateSearchCacheKey(query, project);
   const cached = searchCache.get(cacheKey);
-  
+
   if (cached) {
     const { results, query: cachedQuery } = JSON.parse(cached);
     return { results, query: cachedQuery };
   }
-  
+
   const result = await searchFn();
   searchCache.set(cacheKey, JSON.stringify(result));
-  
+
   return result;
 }
 
@@ -189,14 +189,14 @@ export async function cachedPage(
 ): Promise<{ content: string; title: string }> {
   const cacheKey = generatePageCacheKey(project, page);
   const cached = pageCache.get(cacheKey);
-  
+
   if (cached) {
     return JSON.parse(cached);
   }
-  
+
   const result = await fetchFn();
   pageCache.set(cacheKey, JSON.stringify(result));
-  
+
   return result;
 }
 
@@ -231,11 +231,11 @@ export function invalidateSearchCache(project?: string): void {
 // Performance metrics tracking
 export const performanceMetrics = {
   toolCalls: new Map<string, { count: number; totalTime: number }>(),
-  
-  startTimer(tool: string): number {
+
+  startTimer(_tool: string): number {
     return Date.now();
   },
-  
+
   endTimer(tool: string, startTime: number): void {
     const duration = Date.now() - startTime;
     const existing = this.toolCalls.get(tool) || { count: 0, totalTime: 0 };
@@ -244,14 +244,14 @@ export const performanceMetrics = {
       totalTime: existing.totalTime + duration,
     });
   },
-  
+
   getAverageDuration(tool: string): number {
     const metrics = this.toolCalls.get(tool);
     if (!metrics || metrics.count === 0) return 0;
     return metrics.totalTime / metrics.count;
   },
-  
+
   reset(): void {
     this.toolCalls.clear();
-  }
+  },
 };

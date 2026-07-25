@@ -21,11 +21,13 @@ The MCP server provides stateless HTTP access to KnowledgeBook documentation con
 ## Connection
 
 ### MCP Client Setup (Anthropic CLI)
+
 ```bash
 claude mcp add --transport http knowledgebook https://<host>/mcp
 ```
 
 ### MCP Client Setup (Generic)
+
 ```bash
 # POST /mcp with JSON-RPC 2.0 payload
 Content-Type: application/json
@@ -45,12 +47,15 @@ Content-Type: application/json
 ### Read-Only Tools
 
 #### 1. `list_projects`
+
 Lists all documentation projects.
 
 **Input Schema:**
+
 - None
 
 **Example Request:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -63,13 +68,17 @@ Lists all documentation projects.
 ```
 
 **Example Response:**
+
 ```json
 {
   "jsonrpc": "2.0",
   "id": 1,
   "result": {
     "content": [
-      { "type": "text", "text": "- My Project (project: my-project) — 15 pages — Documentation for my project" }
+      {
+        "type": "text",
+        "text": "- My Project (project: my-project) — 15 pages — Documentation for my project"
+      }
     ]
   }
 }
@@ -78,12 +87,15 @@ Lists all documentation projects.
 ---
 
 #### 2. `get_project`
+
 Returns the section and page tree of a project.
 
 **Input Schema:**
+
 - `project` (string, required): Project slug from `list_projects`
 
 **Example Request:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -97,13 +109,17 @@ Returns the section and page tree of a project.
 ```
 
 **Example Response:**
+
 ```json
 {
   "jsonrpc": "2.0",
   "id": 2,
   "result": {
     "content": [
-      { "type": "text", "text": "# My Project (project: my-project)\n\nPages (use the `page` slug with the get_page tool):\n- Getting Started (page: getting-started)\n- API Reference (page: api-reference)\n\n## API Reference\n- Endpoints (page: endpoints)\n- Authentication (page: auth)" }
+      {
+        "type": "text",
+        "text": "# My Project (project: my-project)\n\nPages (use the `page` slug with the get_page tool):\n- Getting Started (page: getting-started)\n- API Reference (page: api-reference)\n\n## API Reference\n- Endpoints (page: endpoints)\n- Authentication (page: auth)"
+      }
     ]
   }
 }
@@ -112,13 +128,16 @@ Returns the section and page tree of a project.
 ---
 
 #### 3. `get_page`
+
 Returns the full markdown content of a page.
 
 **Input Schema:**
+
 - `project` (string, required): Project slug
 - `page` (string, required): Page slug from `get_project`
 
 **Example Request:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -132,13 +151,17 @@ Returns the full markdown content of a page.
 ```
 
 **Example Response:**
+
 ```json
 {
   "jsonrpc": "2.0",
   "id": 3,
   "result": {
     "content": [
-      { "type": "text", "text": "ID: 123\nTitle: Getting Started\nProject: my-project\nPage: getting-started\nLast updated: 2026-07-20T12:00:00+00:00\n\n# Getting Started\n\nThis guide covers..." }
+      {
+        "type": "text",
+        "text": "ID: 123\nTitle: Getting Started\nProject: my-project\nPage: getting-started\nLast updated: 2026-07-20T12:00:00+00:00\n\n# Getting Started\n\nThis guide covers..."
+      }
     ]
   }
 }
@@ -147,13 +170,16 @@ Returns the full markdown content of a page.
 ---
 
 #### 4. `search`
+
 Full-text search across page titles and content.
 
 **Input Schema:**
+
 - `query` (string, required): Text to search for
 - `project` (string, optional): Limit search to one project
 
 **Example Request:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -171,20 +197,25 @@ Full-text search across page titles and content.
 ### Write-Capable Tools (Authenticated)
 
 #### Authentication Requirements
+
 All write operations require authentication:
+
 1. User must be logged in via Google OAuth or Web3 wallet
 2. User must have write access to the project (owner or project member)
 
 **HTTP Headers:**
+
 - `Authorization: Bearer <token>` (OAuth)
 - Or session cookie set by `nuxt-auth-utils`
 
 ---
 
 #### 5. `create_page`
+
 Creates a new documentation page.
 
 **Input Schema:**
+
 - `project` (string, required): Project slug
 - `title` (string, required): Page title (min 1 char)
 - `content` (string, optional): Initial markdown content
@@ -192,6 +223,7 @@ Creates a new documentation page.
 - `isAiEdit` (boolean, optional): Mark as AI-generated (default: false)
 
 **Example Request:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -210,13 +242,17 @@ Creates a new documentation page.
 ```
 
 **Example Response:**
+
 ```json
 {
   "jsonrpc": "2.0",
   "id": 5,
   "result": {
     "content": [
-      { "type": "text", "text": "Page created successfully!\n\nID: 456\nSlug: new-feature-guide\nTitle: New Feature Guide\nProject: my-project\nCreated by: user@example.com (AI)" }
+      {
+        "type": "text",
+        "text": "Page created successfully!\n\nID: 456\nSlug: new-feature-guide\nTitle: New Feature Guide\nProject: my-project\nCreated by: user@example.com (AI)"
+      }
     ]
   }
 }
@@ -225,9 +261,11 @@ Creates a new documentation page.
 ---
 
 #### 6. `update_page`
+
 Updates an existing page with version tracking.
 
 **Input Schema:**
+
 - `project` (string, required): Project slug
 - `page` (string, required): Page slug
 - `content` (string, optional): New content
@@ -236,6 +274,7 @@ Updates an existing page with version tracking.
 - `versionComment` (string, optional): Change description
 
 **Example Request:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -254,13 +293,17 @@ Updates an existing page with version tracking.
 ```
 
 **Example Response:**
+
 ```json
 {
   "jsonrpc": "2.0",
   "id": 6,
   "result": {
     "content": [
-      { "type": "text", "text": "Page updated successfully!\n\nID: 123\nTitle: Getting Started\nLast updated by: user@example.com (Human)\nComment: Updated installation instructions" }
+      {
+        "type": "text",
+        "text": "Page updated successfully!\n\nID: 123\nTitle: Getting Started\nLast updated by: user@example.com (Human)\nComment: Updated installation instructions"
+      }
     ]
   }
 }
@@ -269,14 +312,17 @@ Updates an existing page with version tracking.
 ---
 
 #### 7. `create_section`
+
 Creates a new section in a project.
 
 **Input Schema:**
+
 - `project` (string, required): Project slug
 - `title` (string, required): Section title
 - `parent` (string, optional): Parent section slug for nesting
 
 **Example Request:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -296,15 +342,18 @@ Creates a new section in a project.
 ---
 
 #### 8. `search_and_summarize`
+
 Searches and generates AI summary of results.
 
 **Input Schema:**
+
 - `query` (string, required): Search query
 - `project` (string, optional): Limit search to one project
 - `maxResults` (number, optional): Results to include in summary (default: 5)
 - `temperature` (number, optional): AI temperature (default: 0.7)
 
 **Example Request:**
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -323,13 +372,17 @@ Searches and generates AI summary of results.
 ```
 
 **Example Response:**
+
 ```json
 {
   "jsonrpc": "2.0",
   "id": 8,
   "result": {
     "content": [
-      { "type": "text", "text": "## Search Results Summary\n\n**Query:** \"how to configure API keys\"\n**Results Found:** 3\n\n---\n\n**AI Summary:**\nTo configure API keys, follow these steps..." }
+      {
+        "type": "text",
+        "text": "## Search Results Summary\n\n**Query:** \"how to configure API keys\"\n**Results Found:** 3\n\n---\n\n**AI Summary:**\nTo configure API keys, follow these steps..."
+      }
     ]
   }
 }
@@ -340,6 +393,7 @@ Searches and generates AI summary of results.
 ## Rate Limiting
 
 MCP server implements token bucket rate limiting:
+
 - **Maximum burst:** 10 requests
 - **Refill rate:** 2 requests/second
 - **Token bucket expiration:** 5 minutes of inactivity
@@ -349,6 +403,7 @@ MCP server implements token bucket rate limiting:
 ## Error Handling
 
 ### Authentication Errors
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -361,6 +416,7 @@ MCP server implements token bucket rate limiting:
 ```
 
 ### Authorization Errors
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -373,6 +429,7 @@ MCP server implements token bucket rate limiting:
 ```
 
 ### Invalid Request
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -399,6 +456,7 @@ MCP server implements token bucket rate limiting:
 ## Configuration
 
 ### Environment Variables
+
 - `ALLOWED_ORIGINS`: Comma-separated list of allowed CORS origins
 - `OPENAI_API_KEY`: For AI summary generation (optional)
 - `ANTHROPIC_API_KEY`: Alternative AI provider (optional)
@@ -412,11 +470,13 @@ MCP server implements token bucket rate limiting:
 The MCP server is compatible with any MCP SDK client:
 
 ### Anthropic Claude Desktop
+
 ```bash
 claude mcp add --transport http knowledgebook https://<host>/mcp
 ```
 
 ### Python MCP Client
+
 ```python
 from mcp import Client, Session
 import httpx
@@ -430,24 +490,26 @@ async with Client(
 ```
 
 ### Node.js MCP Client
+
 ```javascript
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
-const client = new Client({
-  name: 'knowledgebook-client',
-  version: '1.0.0'
-}, {
-  capabilities: {
-    tools: {}
+const client = new Client(
+  {
+    name: 'knowledgebook-client',
+    version: '1.0.0',
+  },
+  {
+    capabilities: {
+      tools: {},
+    },
   }
-});
-
-await client.connect(
-  new URL('https://<host>/mcp')
 );
+
+await client.connect(new URL('https://<host>/mcp'));
 const result = await client.request({
   method: 'tools/call',
-  params: { name: 'list_projects' }
+  params: { name: 'list_projects' },
 });
 console.log(result);
 ```
@@ -457,16 +519,19 @@ console.log(result);
 ## Troubleshooting
 
 ### Connection Timeout
+
 - Verify the MCP endpoint is accessible: `curl -X POST <host>/mcp`
 - Check server logs for errors
 - Ensure CORS headers are configured correctly
 
 ### Authentication Failures
+
 - Verify session cookies are being sent
 - Check OAuth tokens are valid and not expired
 - Ensure user has write access to the project
 
 ### Rate Limiting
+
 - Wait for token bucket to refill (5 minutes of inactivity resets)
 - Reduce request frequency
 
@@ -474,10 +539,10 @@ console.log(result);
 
 ## API Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.1.0 | 2026-07-23 | Added `search_and_summarize`, `page_versions` table support |
-| 1.0.0 | 2026-07-20 | Initial release with read/write tools |
+| Version | Date       | Changes                                                     |
+| ------- | ---------- | ----------------------------------------------------------- |
+| 1.1.0   | 2026-07-23 | Added `search_and_summarize`, `page_versions` table support |
+| 1.0.0   | 2026-07-20 | Initial release with read/write tools                       |
 
 ---
 

@@ -1,7 +1,7 @@
 // Rate limiting for MCP server write operations
 // Implements token bucket algorithm for AI operations
 
-import type { H3Event } from 'h3'
+import type { H3Event } from 'h3';
 
 interface RateLimitConfig {
   requestsPerMinute: number;
@@ -32,7 +32,7 @@ export function checkRateLimit(
 ): { allowed: boolean; retryAfter?: number } {
   const now = Date.now();
   let state = perUserLimits.get(userId);
-  
+
   if (!state) {
     state = {
       tokens: config.burstSize,
@@ -40,21 +40,21 @@ export function checkRateLimit(
     };
     perUserLimits.set(userId, state);
   }
-  
+
   // Refill tokens based on time elapsed
   const elapsed = now - state.lastRefill;
   const tokensToAdd = (elapsed / 1000) * (config.requestsPerMinute / 60);
-  
+
   if (tokensToAdd > 0) {
     state.tokens = Math.min(config.burstSize, state.tokens + tokensToAdd);
     state.lastRefill = now;
   }
-  
+
   if (state.tokens >= 1) {
     state.tokens -= 1;
     return { allowed: true };
   }
-  
+
   // Calculate retry after
   const retryAfter = Math.ceil((1 - state.tokens) * (1000 / (config.requestsPerMinute / 60)));
   return { allowed: false, retryAfter };

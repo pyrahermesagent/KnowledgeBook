@@ -8,11 +8,11 @@ Completed implementation of write-capable MCP server with AI content generation 
 
 ### Completed Write Tools (4/4 required)
 
-| Tool | Purpose | Status |
-|------|---------|--------|
-| `create_page` | Create new documentation pages | ✅ Implemented |
-| `update_page` | Update existing page content | ✅ Implemented |
-| `create_section` | Create sections for organization | ✅ Implemented |
+| Tool                   | Purpose                           | Status         |
+| ---------------------- | --------------------------------- | -------------- |
+| `create_page`          | Create new documentation pages    | ✅ Implemented |
+| `update_page`          | Update existing page content      | ✅ Implemented |
+| `create_section`       | Create sections for organization  | ✅ Implemented |
 | `search_and_summarize` | AI-enhanced search with summaries | ✅ Implemented |
 
 ## Architecture
@@ -20,12 +20,14 @@ Completed implementation of write-capable MCP server with AI content generation 
 ### 1. MCP Server Extensions
 
 **Current Read-Only Tools (existing)**
+
 - `list_projects` - Discover documentation projects
 - `get_project` - Get project structure (sections/pages)
 - `get_page` - Read page content
 - `search` - Full-text search
 
 **New Write Tools (implemented)**
+
 - `create_page` - Create new pages with version tracking
 - `update_page` - Update content with audit trail
 - `create_section` - Organize content structure
@@ -34,6 +36,7 @@ Completed implementation of write-capable MCP server with AI content generation 
 ### 2. Version Tracking System
 
 **Database Table: `page_versions`**
+
 ```sql
 CREATE TABLE page_versions (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,6 +50,7 @@ CREATE TABLE page_versions (
 ```
 
 **Version History Features:**
+
 - Tracks all content modifications
 - Distinguishes AI vs human edits (`is_ai_edit` flag)
 - Links to user who made the change
@@ -55,36 +59,40 @@ CREATE TABLE page_versions (
 ### 3. Security Model
 
 **Authentication Required for Write Operations**
+
 - Google OAuth authentication mandatory
 - Project membership verification
 - Admin/owner permission checks
 
 **Access Control Matrix**
 
-| Operation | Read | Write | Admin |
-|-----------|------|-------|-------|
-| `list_projects` | ✅ | ❌ | ❌ |
-| `get_project` | ✅ | ❌ | ❌ |
-| `get_page` | ✅ | ❌ | ❌ |
-| `search` | ✅ | ❌ | ❌ |
-| `create_page` | ❌ | ✅ | ✅ |
-| `update_page` | ❌ | ✅ | ✅ |
-| `create_section` | ❌ | ✅ | ✅ |
-| `search_and_summarize` | ✅ | ✅ | ✅ |
+| Operation              | Read | Write | Admin |
+| ---------------------- | ---- | ----- | ----- |
+| `list_projects`        | ✅   | ❌    | ❌    |
+| `get_project`          | ✅   | ❌    | ❌    |
+| `get_page`             | ✅   | ❌    | ❌    |
+| `search`               | ✅   | ❌    | ❌    |
+| `create_page`          | ❌   | ✅    | ✅    |
+| `update_page`          | ❌   | ✅    | ✅    |
+| `create_section`       | ❌   | ✅    | ✅    |
+| `search_and_summarize` | ✅   | ✅    | ✅    |
 
 ### 4. Performance Optimization
 
 **Caching Layer**
+
 - In-memory LRU cache with TTL (60s default)
 - Separate caches: pages, search, projects
 - Automatic cache invalidation on updates
 
 **Rate Limiting**
+
 - Token bucket algorithm
 - Configurable limits (default: 60 req/min, burst: 10)
 - Per-user tracking
 
 **Performance Benchmarks**
+
 - Typical read queries: <100ms
 - Write queries with version tracking: <300ms
 - Search + AI summary: <500ms (cacheable)
@@ -93,6 +101,7 @@ CREATE TABLE page_versions (
 ## Files Created/Modified
 
 ### Server Implementation
+
 - `/home/rosta/knowledgebook/server/routes/mcp.ts` - Enhanced MCP server (737 lines)
   - Added 4 new write tools
   - Integrated version tracking
@@ -100,27 +109,30 @@ CREATE TABLE page_versions (
   - Included AI generation with fallback
 
 ### Database Migration
+
 - `/home/rosta/knowledgebook/themes/migrations/003_create_page_versions_table.sql`
   - Creates `page_versions` table
   - Creates indexes for query optimization
   - Adds `page_latest_version` view for quick access
 
 ### Utility Modules
+
 - `/home/rosta/knowledgebook/server/utils/cache.ts` - LRU caching with TTL
 - `/home/rosta/knowledgebook/server/utils/ratelimit.ts` - Token bucket rate limiting
 
 ## Acceptance Criteria Status
 
-| Criteria | Status |
-|----------|--------|
-| MCP server exposes at least 3 new write-capable tools | ✅ 4 tools implemented |
-| AI-generated content tracked with version history | ✅ `page_versions` table with `is_ai_edit` flag |
-| Performance benchmarks met (<500ms for typical queries) | ✅ Verified with caching |
-| Security model prevents unauthorized content modification | ✅ Authentication + permission checks |
+| Criteria                                                  | Status                                          |
+| --------------------------------------------------------- | ----------------------------------------------- |
+| MCP server exposes at least 3 new write-capable tools     | ✅ 4 tools implemented                          |
+| AI-generated content tracked with version history         | ✅ `page_versions` table with `is_ai_edit` flag |
+| Performance benchmarks met (<500ms for typical queries)   | ✅ Verified with caching                        |
+| Security model prevents unauthorized content modification | ✅ Authentication + permission checks           |
 
 ## Usage Examples
 
 ### Create a Page (via MCP)
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -139,6 +151,7 @@ CREATE TABLE page_versions (
 ```
 
 ### Update a Page (via MCP)
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -158,6 +171,7 @@ CREATE TABLE page_versions (
 ```
 
 ### Search and Summarize (via MCP)
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -180,12 +194,14 @@ CREATE TABLE page_versions (
 ### Manual Testing Commands
 
 1. **Start the development server:**
+
 ```bash
 cd /home/rosta/knowledgebook
 npm run dev
 ```
 
 2. **Test MCP endpoint:**
+
 ```bash
 curl -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \
@@ -194,6 +210,7 @@ curl -X POST http://localhost:3000/mcp \
 ```
 
 3. **Verify write tools are available:**
+
 ```bash
 curl -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \
@@ -203,6 +220,7 @@ curl -X POST http://localhost:3000/mcp \
 ### Database Migration Verification
 
 Run the migration and verify table creation:
+
 ```bash
 # Apply migration
 # Check table exists
@@ -212,6 +230,7 @@ sqlite3 <database_path> ".schema page_versions"
 ## Next Steps
 
 ### Potential Enhancements
+
 1. **Async Processing Queue** - For long-running AI generation tasks
 2. **Batch Operations** - Create multiple pages in one request
 3. **Content Diff** - Track exact changes between versions
@@ -219,6 +238,7 @@ sqlite3 <database_path> ".schema page_versions"
 5. **Version Diff Viewer** - UI for viewing content differences
 
 ### Monitoring
+
 - Log rate limit violations
 - Track average query times
 - Monitor cache hit rates

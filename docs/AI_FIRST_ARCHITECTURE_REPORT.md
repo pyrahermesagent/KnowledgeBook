@@ -12,13 +12,13 @@ This document analyzes the current KnowledgeBook architecture and proposes an AI
 
 ### Key Findings
 
-| Aspect | Current State | AI-First Target |
-|--------|--------------|-----------------|
-| MCP Tools | 4 read-only tools | 10+ tools with CRUD and AI capabilities |
-| Authentication | None (public endpoint) | Session-based with role permissions |
-| Write Capabilities | None | Full CRUD for projects, sections, pages |
-| Search | Basic full-text search | Semantic RAG with vector embeddings |
-| Translation | None | AI-powered multi-language support |
+| Aspect             | Current State          | AI-First Target                         |
+| ------------------ | ---------------------- | --------------------------------------- |
+| MCP Tools          | 4 read-only tools      | 10+ tools with CRUD and AI capabilities |
+| Authentication     | None (public endpoint) | Session-based with role permissions     |
+| Write Capabilities | None                   | Full CRUD for projects, sections, pages |
+| Search             | Basic full-text search | Semantic RAG with vector embeddings     |
+| Translation        | None                   | AI-powered multi-language support       |
 
 ---
 
@@ -29,14 +29,16 @@ This document analyzes the current KnowledgeBook architecture and proposes an AI
 **Location**: `server/routes/mcp.ts`
 
 **Existing Tools**:
-| Tool | Description | Access |
-|------|-------------|--------|
-| `list_projects` | Lists all documentation projects | Public |
-| `get_project` | Returns project structure and page slugs | Public |
-| `get_page` | Returns full markdown content | Public |
-| `search` | Full-text search across titles/content | Public |
+
+| Tool            | Description                              | Access |
+| --------------- | ---------------------------------------- | ------ |
+| `list_projects` | Lists all documentation projects         | Public |
+| `get_project`   | Returns project structure and page slugs | Public |
+| `get_page`      | Returns full markdown content            | Public |
+| `search`        | Full-text search across titles/content   | Public |
 
 **Security Characteristics**:
+
 - **Authentication**: None (public endpoint)
 - **Authorization**: None (all content is public)
 - **Rate Limiting**: None
@@ -44,15 +46,16 @@ This document analyzes the current KnowledgeBook architecture and proposes an AI
 
 ### Database Schema
 
-| Table | Purpose |
-|-------|---------|
-| `users` | Google OAuth user accounts |
-| `projects` | Documentation projects with metadata |
-| `sections` | Hierarchical content organization |
-| `project_members` | Member access control |
-| `pages` | Content pages with markdown |
+| Table             | Purpose                              |
+| ----------------- | ------------------------------------ |
+| `users`           | Google OAuth user accounts           |
+| `projects`        | Documentation projects with metadata |
+| `sections`        | Hierarchical content organization    |
+| `project_members` | Member access control                |
+| `pages`           | Content pages with markdown          |
 
 **Current Limitations**:
+
 - No vector embeddings for semantic search
 - No translation cache table
 - No AI-generated content tracking
@@ -63,30 +66,30 @@ This document analyzes the current KnowledgeBook architecture and proposes an AI
 
 ### Security & Access Control Gaps
 
-| Gap | Severity | Impact | Implementation Priority |
-|-----|----------|--------|------------------------|
-| No authentication middleware | High | Security vulnerability | P0 |
-| No authorization checks | High | Unauthorized modifications | P0 |
-| No rate limiting | Medium | Potential abuse | P1 |
-| Missing permission matrix | High | No access control | P0 |
+| Gap                          | Severity | Impact                     | Implementation Priority |
+| ---------------------------- | -------- | -------------------------- | ----------------------- |
+| No authentication middleware | High     | Security vulnerability     | P0                      |
+| No authorization checks      | High     | Unauthorized modifications | P0                      |
+| No rate limiting             | Medium   | Potential abuse            | P1                      |
+| Missing permission matrix    | High     | No access control          | P0                      |
 
 ### AI Capability Gaps
 
-| Feature | Current | Gap | Priority |
-|---------|---------|-----|----------|
-| AI Content Generation | None | No MCP tools for AI authors | P0 |
-| Semantic Search (RAG) | Basic text search | No vector embeddings | P1 |
-| AI Translation | None | No translation support | P1 |
-| Context-Aware Help | None | No project context for LLMs | P2 |
+| Feature               | Current           | Gap                         | Priority |
+| --------------------- | ----------------- | --------------------------- | -------- |
+| AI Content Generation | None              | No MCP tools for AI authors | P0       |
+| Semantic Search (RAG) | Basic text search | No vector embeddings        | P1       |
+| AI Translation        | None              | No translation support      | P1       |
+| Context-Aware Help    | None              | No project context for LLMs | P2       |
 
 ### Development Process Gaps
 
-| Gap | Status | Notes |
-|-----|--------|-------|
-| Write tool implementations | Missing | No CRUD beyond read-only |
-| Integration tests | Incomplete | Only 8 tests, no MCP endpoint tests |
-| Security documentation | Missing | No security model documented |
-| AI agent usage patterns | Unknown | No documentation for AI workflows |
+| Gap                        | Status     | Notes                               |
+| -------------------------- | ---------- | ----------------------------------- |
+| Write tool implementations | Missing    | No CRUD beyond read-only            |
+| Integration tests          | Incomplete | Only 8 tests, no MCP endpoint tests |
+| Security documentation     | Missing    | No security model documented        |
+| AI agent usage patterns    | Unknown    | No documentation for AI workflows   |
 
 ---
 
@@ -188,15 +191,16 @@ This document analyzes the current KnowledgeBook architecture and proposes an AI
 
 **Goal**: Enable AI agents to read and write documentation securely
 
-| Task | Deliverable | Acceptance Criteria |
-|------|-------------|---------------------|
-| 1.1 Authentication Middleware | Session validation for MCP | 401 for unauthenticated write requests |
-| 1.2 Authorization Layer | Permission checks per tool | 403 for unauthorized operations |
-| 1.3 Rate Limiting | IP/User-based limits | 100 req/min read, 20 req/min write |
-| 1.4 Write Tools (6) | CRUD for projects/pages/sections | All tools with input validation |
-| 1.5 Security Tests | Integration test suite | Auth flow tests, permission enforcement |
+| Task                          | Deliverable                      | Acceptance Criteria                     |
+| ----------------------------- | -------------------------------- | --------------------------------------- |
+| 1.1 Authentication Middleware | Session validation for MCP       | 401 for unauthenticated write requests  |
+| 1.2 Authorization Layer       | Permission checks per tool       | 403 for unauthorized operations         |
+| 1.3 Rate Limiting             | IP/User-based limits             | 100 req/min read, 20 req/min write      |
+| 1.4 Write Tools (6)           | CRUD for projects/pages/sections | All tools with input validation         |
+| 1.5 Security Tests            | Integration test suite           | Auth flow tests, permission enforcement |
 
 **MCP Tools Added (Phase 1)**:
+
 - `create_project` - Create new documentation project
 - `create_page` - Create new page with markdown content
 - `update_page` - Update page title/content
@@ -210,15 +214,16 @@ This document analyzes the current KnowledgeBook architecture and proposes an AI
 
 **Goal**: Enable AI agents to generate, translate, and enhance content
 
-| Task | Deliverable | Acceptance Criteria |
-|------|-------------|---------------------|
-| 2.1 Vector Embeddings | SQLite vector extension | Store embeddings for semantic search |
-| 2.2 RAG Search Tool | ai_search_rag | Returns synthesized answer + sources |
-| 2.3 Translation API | ai_translate | Translate pages to target language |
-| 2.4 AI Summarization | ai_summarize | Create page summaries from content |
-| 2.5 AI Expansion | ai_expand | Expand sections with additional detail |
+| Task                  | Deliverable             | Acceptance Criteria                    |
+| --------------------- | ----------------------- | -------------------------------------- |
+| 2.1 Vector Embeddings | SQLite vector extension | Store embeddings for semantic search   |
+| 2.2 RAG Search Tool   | ai_search_rag           | Returns synthesized answer + sources   |
+| 2.3 Translation API   | ai_translate            | Translate pages to target language     |
+| 2.4 AI Summarization  | ai_summarize            | Create page summaries from content     |
+| 2.5 AI Expansion      | ai_expand               | Expand sections with additional detail |
 
 **MCP Tools Added (Phase 2)**:
+
 - `ai_search_rag` - Semantic search with RAG
 - `ai_translate` - AI-powered translation
 - `ai_summarize` - Generate content summaries
@@ -230,14 +235,15 @@ This document analyzes the current KnowledgeBook architecture and proposes an AI
 
 **Goal**: Enable context-aware AI assistance and performance optimization
 
-| Task | Deliverable | Acceptance Criteria |
-|------|-------------|---------------------|
-| 3.1 Context Injection | Project metadata injection | LLMs receive project-specific context |
-| 3.2 Model Selection | Dynamic model routing | Choose model based on task complexity |
-| 3.3 Caching Strategy | AI output caching | Reuse AI-generated content |
-| 3.4 Analytics & Logging | MCP usage tracking | Monitor AI tool usage patterns |
+| Task                    | Deliverable                | Acceptance Criteria                   |
+| ----------------------- | -------------------------- | ------------------------------------- |
+| 3.1 Context Injection   | Project metadata injection | LLMs receive project-specific context |
+| 3.2 Model Selection     | Dynamic model routing      | Choose model based on task complexity |
+| 3.3 Caching Strategy    | AI output caching          | Reuse AI-generated content            |
+| 3.4 Analytics & Logging | MCP usage tracking         | Monitor AI tool usage patterns        |
 
 **MCP Tools Added (Phase 3)**:
+
 - `ai_context` - Context-aware assistance with project metadata
 - `ai_analyze` - Analyze content quality/issues
 
@@ -309,7 +315,7 @@ export class AIOrchestrator {
     const context = this.buildContext(projectId, content);
     const prompt = this.buildPrompt('translate', { ...context, targetLang });
     const response = await this.callLLM(prompt);
-    
+
     this.cacheTranslation(projectId, content, targetLang, response);
     return response;
   }
@@ -330,14 +336,17 @@ export class AIOrchestrator {
 ## Deliverables
 
 ### 1. Architecture Analysis Report ✓
+
 **File**: `docs/AI_FIRST_ARCHITECTURE_REPORT.md`  
 **Status**: Completed
 
 ### 2. AI Capabilities Roadmap Document ✓
+
 **File**: See Phase 1-3 sections above  
 **Status**: Completed
 
 ### 3. Gap Analysis Matrix ✓
+
 **File**: See Gap Analysis Matrix section above  
 **Status**: Completed
 
@@ -360,14 +369,14 @@ export class AIOrchestrator {
 
 ## Related Files & References
 
-| File | Purpose |
-|------|---------|
-| `server/routes/mcp.ts` | Current MCP server implementation |
-| `server/utils/auth.ts` | Authentication utilities |
-| `server/utils/db.ts` | Database schema and access |
-| `docs/MCP_ARCHITECTURE_SPEC.md` | Existing MCP architecture spec |
-| `docs/MCP_GAP_ANALYSIS.md` | Previous gap analysis report |
-| `README.md` | Project documentation |
+| File                            | Purpose                           |
+| ------------------------------- | --------------------------------- |
+| `server/routes/mcp.ts`          | Current MCP server implementation |
+| `server/utils/auth.ts`          | Authentication utilities          |
+| `server/utils/db.ts`            | Database schema and access        |
+| `docs/MCP_ARCHITECTURE_SPEC.md` | Existing MCP architecture spec    |
+| `docs/MCP_GAP_ANALYSIS.md`      | Previous gap analysis report      |
+| `README.md`                     | Project documentation             |
 
 ---
 

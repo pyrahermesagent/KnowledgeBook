@@ -1,41 +1,49 @@
 <script setup lang="ts">
-import { ArrowLeft, ArrowRight, Pencil, Menu, X } from 'lucide-vue-next'
+import { ArrowLeft, ArrowRight, Pencil, Menu, X } from 'lucide-vue-next';
 
-const props = defineProps<{ projectSlug: string, pageSlug?: string }>()
+const props = defineProps<{ projectSlug: string; pageSlug?: string }>();
 
-const { data: project, error } = await useFetch(`/api/projects/${props.projectSlug}`)
+const { data: project, error } = await useFetch(`/api/projects/${props.projectSlug}`);
 if (error.value || !project.value) {
-  throw createError({ statusCode: 404, message: 'This documentation does not exist', fatal: true })
+  throw createError({ statusCode: 404, message: 'This documentation does not exist', fatal: true });
 }
 
-const navOpen = ref(false)
-const allPages = computed(() => project.value!.sections.flatMap((s: any) => s.pages))
-const activeSlug = computed(() => props.pageSlug ?? allPages.value[0]?.slug)
+const navOpen = ref(false);
+const allPages = computed(() => project.value!.sections.flatMap((s: any) => s.pages));
+const activeSlug = computed(() => props.pageSlug ?? allPages.value[0]?.slug);
 
 const { data: page, error: pageError } = await useFetch(
   () => `/api/projects/${props.projectSlug}/view/${activeSlug.value}`,
   { immediate: Boolean(activeSlug.value) }
-)
+);
 if (props.pageSlug && pageError.value) {
-  throw createError({ statusCode: 404, message: 'Page not found', fatal: true })
+  throw createError({ statusCode: 404, message: 'Page not found', fatal: true });
 }
 
-watch(activeSlug, () => { navOpen.value = false })
+watch(activeSlug, () => {
+  navOpen.value = false;
+});
 
-const activeIndex = computed(() => allPages.value.findIndex((p: any) => p.slug === activeSlug.value))
-const prevPage = computed(() => allPages.value[activeIndex.value - 1])
-const nextPage = computed(() => allPages.value[activeIndex.value + 1])
+const activeIndex = computed(() =>
+  allPages.value.findIndex((p: any) => p.slug === activeSlug.value)
+);
+const prevPage = computed(() => allPages.value[activeIndex.value - 1]);
+const nextPage = computed(() => allPages.value[activeIndex.value + 1]);
 
 useHead({
-  title: () => page.value ? `${page.value.title} · ${project.value!.name}` : project.value!.name,
-  meta: [{ name: 'description', content: () => project.value?.description ?? '' }]
-})
+  title: () => (page.value ? `${page.value.title} · ${project.value!.name}` : project.value!.name),
+  meta: [{ name: 'description', content: () => project.value?.description ?? '' }],
+});
 </script>
 
 <template>
   <div class="docs" :style="{ '--accent': project!.accentColor }">
     <header class="docs-mobile-bar">
-      <button class="nav-toggle" :title="navOpen ? 'Close navigation' : 'Open navigation'" @click="navOpen = !navOpen">
+      <button
+        class="nav-toggle"
+        :title="navOpen ? 'Close navigation' : 'Open navigation'"
+        @click="navOpen = !navOpen"
+      >
         <component :is="navOpen ? X : Menu" :size="20" />
       </button>
       <ProjectIcon :name="project!.name" :icon-url="project!.iconUrl" :size="26" />
@@ -83,11 +91,17 @@ useHead({
             <ArrowLeft :size="15" /> {{ prevPage.title }}
           </NuxtLink>
           <span v-else />
-          <NuxtLink v-if="nextPage" :to="`/${project!.slug}/${nextPage.slug}`" class="pager-link next">
+          <NuxtLink
+            v-if="nextPage"
+            :to="`/${project!.slug}/${nextPage.slug}`"
+            class="pager-link next"
+          >
             {{ nextPage.title }} <ArrowRight :size="15" />
           </NuxtLink>
         </div>
-        <p class="muted updated">Last updated {{ new Date(page.updated_at + 'Z').toLocaleDateString() }}</p>
+        <p class="muted updated">
+          Last updated {{ new Date(page.updated_at + 'Z').toLocaleDateString() }}
+        </p>
       </article>
       <p v-else class="muted">This documentation has no pages yet.</p>
     </main>
@@ -95,8 +109,16 @@ useHead({
 </template>
 
 <style scoped>
-.docs { display: flex; min-height: 100vh; min-height: 100dvh; }
-.docs-mobile-bar, .nav-backdrop, .nav-toggle { display: none; }
+.docs {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+.docs-mobile-bar,
+.nav-backdrop,
+.nav-toggle {
+  display: none;
+}
 .docs-sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
@@ -126,8 +148,14 @@ useHead({
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.docs-nav { flex: 1; overflow-y: auto; padding: 12px 8px; }
-.docs-section { margin-bottom: 16px; }
+.docs-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 8px;
+}
+.docs-section {
+  margin-bottom: 16px;
+}
 .docs-section-title {
   font-size: 11px;
   font-weight: 700;
@@ -144,7 +172,9 @@ useHead({
   text-decoration: none !important;
   font-size: 14px;
 }
-.docs-link:hover { background: var(--accent-soft); }
+.docs-link:hover {
+  background: var(--accent-soft);
+}
 .docs-link.active {
   background: var(--accent-soft);
   color: var(--accent);
@@ -158,8 +188,14 @@ useHead({
   justify-content: space-between;
   gap: 8px;
 }
-.powered { font-size: 11px; }
-.docs-main { flex: 1; padding: 48px 56px; min-width: 0; }
+.powered {
+  font-size: 11px;
+}
+.docs-main {
+  flex: 1;
+  padding: 48px 56px;
+  min-width: 0;
+}
 .docs-pager {
   display: flex;
   justify-content: space-between;
@@ -177,8 +213,13 @@ useHead({
   text-decoration: none !important;
   font-weight: 500;
 }
-.pager-link:hover { border-color: var(--accent); }
-.updated { font-size: 12px; margin-top: 24px; }
+.pager-link:hover {
+  border-color: var(--accent);
+}
+.updated {
+  font-size: 12px;
+  margin-top: 24px;
+}
 
 /* Image sizes - GitBook-inspired sizing */
 .image-size-small {
@@ -213,7 +254,11 @@ useHead({
     background: var(--bg-subtle);
     border-bottom: 1px solid var(--border);
   }
-  .docs-mobile-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .docs-mobile-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .nav-toggle {
     display: inline-flex;
     align-items: center;
@@ -232,7 +277,9 @@ useHead({
     z-index: 19;
     background: rgba(0, 0, 0, 0.35);
   }
-  .docs { flex-direction: column; }
+  .docs {
+    flex-direction: column;
+  }
   .docs-sidebar {
     position: fixed;
     inset: 0 auto 0 0;
@@ -242,9 +289,17 @@ useHead({
     transition: transform 0.2s ease;
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
   }
-  .docs-sidebar.open { transform: translateX(0); }
-  .docs-main { padding: 24px 20px; }
-  .docs-pager { flex-direction: column; }
-  .pager-link.next { justify-content: flex-end; }
+  .docs-sidebar.open {
+    transform: translateX(0);
+  }
+  .docs-main {
+    padding: 24px 20px;
+  }
+  .docs-pager {
+    flex-direction: column;
+  }
+  .pager-link.next {
+    justify-content: flex-end;
+  }
 }
 </style>

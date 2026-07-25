@@ -6,5 +6,5 @@
  * setup file installs.
  */
 export function useRuntimeConfig(): any {
-  return (globalThis as Record<string, any>).useRuntimeConfig()
+  return (globalThis as Record<string, any>).useRuntimeConfig();
 }

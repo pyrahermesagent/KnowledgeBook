@@ -30,6 +30,7 @@ Add to Claude Code settings (`claude_desktop_config.json`):
 ### Other MCP Clients
 
 **Tabby:**
+
 ```json
 {
   "mcpServers": [
@@ -42,6 +43,7 @@ Add to Claude Code settings (`claude_desktop_config.json`):
 ```
 
 **Goose:**
+
 ```json
 {
   "mcpServers": {
@@ -73,20 +75,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build documentation
         run: npm run build
         env:
           NODE_ENV: production
-      
+
       - name: Upload to KnowledgeBook
         run: |
           curl -X POST https://knowledgebook.plutolabs.app/api/projects/import-gitbook \
@@ -400,12 +402,12 @@ steps:
   - task: NodeJS@10
     inputs:
       nodeVersion: '20'
-  
+
   - script: |
       npm install
       npm run build
     displayName: 'Build Documentation'
-  
+
   - task: CmdLine@2
     inputs:
       script: |
@@ -430,7 +432,7 @@ def lambda_handler(event, context):
     # Get KnowledgeBook client
     kb = boto3.client("secretsmanager")
     secrets = json.loads(kb.get_secret_value(SecretId="knowledgebook")["SecretString"])
-    
+
     # Process event
     if event.get("detail", {}).get("event") == "project.updated":
         # Trigger update workflow
@@ -441,7 +443,7 @@ def lambda_handler(event, context):
                 "action": "sync"
             }
         )
-    
+
     return {"statusCode": 200, "body": "OK"}
 ```
 
@@ -460,20 +462,20 @@ app = Flask(__name__)
 @app.route("/webhooks/knowledgebook", methods=["POST"])
 def knowledgebook_webhook():
     data = request.json
-    
+
     if data["event"] == "project.updated":
         # Handle project update
         process_update(data)
     elif data["event"] == "page.created":
         # Handle new page
         notify_team(data)
-    
+
     return jsonify({"status": "received"})
 
 def process_update(data):
     project_slug = data["project_slug"]
     pages = data.get("changed_pages", [])
-    
+
     # Your update logic here
     print(f"Processing updates for {project_slug}: {pages}")
 
@@ -517,6 +519,7 @@ if __name__ == "__main__":
 ## Support
 
 For integration questions:
+
 - Check integration-specific docs
 - Visit [Community Forum](https://forum.knowledgebook.app)
 - Contact support@knowledgebook.app

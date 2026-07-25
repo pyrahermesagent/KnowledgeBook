@@ -15,7 +15,7 @@ export function createClient(config: {
   return new KnowledgeBook({
     baseUrl: config.baseUrl,
     apiKey: config.apiKey,
-    accessToken: config.accessToken
+    accessToken: config.accessToken,
   });
 }
 
@@ -81,7 +81,7 @@ export async function retry<T>(
     } catch (error) {
       lastError = error as Error;
       if (i < maxRetries - 1) {
-        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+        await new Promise((resolve) => setTimeout(resolve, delay * (i + 1)));
       }
     }
   }

@@ -1,5 +1,5 @@
-import { generateNonce, type StoredNonce } from '#utils/auth-wallet'
-import { requireAuthRateLimit } from '#utils/ratelimit'
+import { generateNonce, type StoredNonce } from '#utils/auth-wallet';
+import { requireAuthRateLimit } from '#utils/ratelimit';
 
 /**
  * Issues a bare login nonce.
@@ -10,14 +10,14 @@ import { requireAuthRateLimit } from '#utils/ratelimit'
  * invalidates any message previously handed out by /login-message.
  */
 export default defineEventHandler(async (event) => {
-  requireAuthRateLimit(event, 'get-nonce')
+  requireAuthRateLimit(event, 'get-nonce');
 
-  const nonce: StoredNonce = { value: generateNonce(), issuedAt: Date.now() }
+  const nonce: StoredNonce = { value: generateNonce(), issuedAt: Date.now() };
 
-  await setUserSession(event, { secure: { walletNonce: nonce } })
+  await setUserSession(event, { secure: { walletNonce: nonce } });
 
   return {
     success: true,
     nonce: nonce.value,
-  }
-})
+  };
+});

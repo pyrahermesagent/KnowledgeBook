@@ -13,14 +13,14 @@ Join the [KnowledgeBook Community Forum](https://forum.knowledgebook.app) to:
 
 ### Forum Categories
 
-| Category | Description |
-|----------|-------------|
-| **General** | Announcements, introductions, chat |
-| **Help** | Getting started, troubleshooting |
-| **Showcase** | Share your projects and integrations |
-| **Suggestions** | Feature requests and enhancements |
-| **Development** | Plugin development, MCP, SDK |
-| **Integrations** | Third-party tool discussions |
+| Category         | Description                          |
+| ---------------- | ------------------------------------ |
+| **General**      | Announcements, introductions, chat   |
+| **Help**         | Getting started, troubleshooting     |
+| **Showcase**     | Share your projects and integrations |
+| **Suggestions**  | Feature requests and enhancements    |
+| **Development**  | Plugin development, MCP, SDK         |
+| **Integrations** | Third-party tool discussions         |
 
 ### Forum Rules
 
@@ -56,9 +56,11 @@ Join the [KnowledgeBook Community Forum](https://forum.knowledgebook.app) to:
 ### How to Ask for Help
 
 **Good:**
+
 > "I'm trying to import a GitBook project, but I get a 403 error. Here's my setup: [details]. I've checked the docs and forum but can't find a solution. Any help appreciated!"
 
 **Bad:**
+
 > "It doesn't work. Help?"
 
 ### Reporting Bugs
@@ -100,14 +102,14 @@ When reporting bugs, include:
 
 ### Contribution Types
 
-| Type | Description |
-|------|-------------|
-| **Code** | Bug fixes, features, performance improvements |
-| **Docs** | Documentation, examples, tutorials |
-| **Translation** | Translate docs and interface |
-| **Design** | UI/UX improvements, icons, graphics |
-| **Testing** | Test new features, report bugs |
-| **Community** | Answer questions, help new users |
+| Type            | Description                                   |
+| --------------- | --------------------------------------------- |
+| **Code**        | Bug fixes, features, performance improvements |
+| **Docs**        | Documentation, examples, tutorials            |
+| **Translation** | Translate docs and interface                  |
+| **Design**      | UI/UX improvements, icons, graphics           |
+| **Testing**     | Test new features, report bugs                |
+| **Community**   | Answer questions, help new users              |
 
 ### Good First Issues
 
@@ -164,7 +166,7 @@ Follow KnowledgeBook on:
 
 ## Code of Conduct
 
-Our community is dedicated to being harassment-free for everyone. 
+Our community is dedicated to being harassment-free for everyone.
 
 ### Our Standards
 

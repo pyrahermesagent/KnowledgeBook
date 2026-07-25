@@ -8,7 +8,7 @@ import { createExportStatus, updateExportStatus } from '~/server/utils/export-pi
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event);
   const body = await readBody(event);
-  
+
   // Validate request
   if (!body.projectSlug) {
     setResponseStatus(event, 400);
@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
       error: 'Project slug is required for export',
     };
   }
-  
+
   if (!body.format) {
     setResponseStatus(event, 400);
     return {
@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
       error: 'Export format is required',
     };
   }
-  
+
   // Validate format
   const validFormats = ['web', 'pdf', 'epub', 'zip', 'api'];
   if (!validFormats.includes(body.format)) {
@@ -35,18 +35,22 @@ export default defineEventHandler(async (event) => {
       error: `Invalid export format: ${body.format}. Valid formats: ${validFormats.join(', ')}`,
     };
   }
-  
+
   // Create export status record
   const exportId = createExportStatus(body.projectSlug, body.format);
-  
+
   try {
     // Get project and sections from database
     const db = useDb();
-    
-    const project = db.prepare(`
+
+    const project = db
+      .prepare(
+        `
       SELECT * FROM projects WHERE slug = ? AND owner_id = ?
-    `).get(body.projectSlug, user.id) as any;
-    
+    `
+      )
+      .get(body.projectSlug, user.id) as any;
+
     if (!project) {
       setResponseStatus(event, 404);
       return {
@@ -54,8 +58,10 @@ export default defineEventHandler(async (event) => {
         error: 'Project not found',
       };
     }
-    
-    const sections = db.prepare(`
+
+    const sections = db
+      .prepare(
+        `
       SELECT s.*, json_group_array(json_object(
         'id', p.id, 'slug', p.slug, 'title', p.title, 
         'content', p.content, 'position', p.position
@@ -67,8 +73,10 @@ export default defineEventHandler(async (event) => {
       )
       GROUP BY s.id
       ORDER BY s.position
-    `).all(project.id) as any;
-    
+    `
+      )
+      .all(project.id) as any;
+
     // Export content
     const result = await exportContent({
       format: body.format,
@@ -81,13 +89,13 @@ export default defineEventHandler(async (event) => {
       outputDir: body.outputDir,
       includeAssets: body.includeAssets,
     });
-    
+
     // Update export status
     updateExportStatus(exportId, {
       status: result.status as any,
       result,
     });
-    
+
     return {
       success: result.success,
       exportId,
@@ -98,7 +106,7 @@ export default defineEventHandler(async (event) => {
       status: 'failed',
       error: (error as Error).message,
     });
-    
+
     setResponseStatus(event, 500);
     return {
       success: false,

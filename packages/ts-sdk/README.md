@@ -22,7 +22,7 @@ import { KnowledgeBook } from '@knowledgebook/sdk';
 // Create a client instance
 const kb = new KnowledgeBook({
   baseUrl: 'https://knowledgebook.plutolabs.app',
-  accessToken: 'your-access-token' // Optional, for authenticated endpoints
+  accessToken: 'your-access-token', // Optional, for authenticated endpoints
 });
 ```
 
@@ -41,7 +41,7 @@ console.log(project.name);
 const newProject = await kb.createProject({
   name: 'My New Project',
   description: 'Project description',
-  accent_color: '#34c759'
+  accent_color: '#34c759',
 });
 ```
 
@@ -54,7 +54,7 @@ const sections = await kb.listSections('my-project');
 // Create a section
 const section = await kb.createSection('my-project', {
   title: 'API Reference',
-  position: 2
+  position: 2,
 });
 
 // Create a page
@@ -63,7 +63,7 @@ const page = await kb.createPage('my-project', {
   slug: 'getting-started',
   content: '# Getting Started\n\nThis is my content.',
   section_id: section.id,
-  position: 1
+  position: 1,
 });
 ```
 
@@ -71,20 +71,10 @@ const page = await kb.createPage('my-project', {
 
 ```typescript
 // Login with wallet
-const { token, user } = await kb.loginWithWallet(
-  '0x123...',
-  'Login to KnowledgeBook',
-  signature
-);
+const { token, user } = await kb.loginWithWallet('0x123...', 'Login to KnowledgeBook', signature);
 
 // Set NFT ownership for project
-await kb.setNftOwnership(
-  'my-project',
-  '0xContract...',
-  123,
-  'ethereum',
-  '0xOwner...'
-);
+await kb.setNftOwnership('my-project', '0xContract...', 123, 'ethereum', '0xOwner...');
 ```
 
 ### MCP Integration
@@ -109,7 +99,7 @@ const theme = await kb.getTheme('my-project');
 await kb.updateTheme('my-project', {
   accent_color: '#34c759',
   font_family: 'Inter',
-  bg_color: '#ffffff'
+  bg_color: '#ffffff',
 });
 ```
 
@@ -120,7 +110,7 @@ import { KnowledgeBook } from '@knowledgebook/sdk/dist/browser.js';
 
 const kb = new KnowledgeBook({
   baseUrl: 'https://knowledgebook.plutolabs.app',
-  accessToken: 'your-token'
+  accessToken: 'your-token',
 });
 ```
 
@@ -130,7 +120,7 @@ const kb = new KnowledgeBook({
 import { KnowledgeBook } from '@knowledgebook/sdk';
 
 const kb = new KnowledgeBook({
-  baseUrl: 'https://knowledgebook.plutolabs.app'
+  baseUrl: 'https://knowledgebook.plutolabs.app',
 });
 
 // Use the SDK

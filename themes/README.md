@@ -10,16 +10,16 @@ This directory contains the theme schema, examples, and migration files for Know
 
 ## API Endpoints (Proposed)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/themes` | List all themes |
-| GET | `/api/themes/:id` | Get theme by ID |
-| POST | `/api/themes` | Create a theme |
-| PATCH | `/api/themes/:id` | Update a theme |
-| DELETE | `/api/themes/:id` | Delete a theme |
-| POST | `/api/projects/:slug/apply-theme` | Apply theme to project |
-| GET | `/api/projects/:slug/theme` | Get effective project theme |
-| GET | `/api/projects/:slug/available-themes` | Get themes available to apply |
+| Method | Endpoint                               | Description                   |
+| ------ | -------------------------------------- | ----------------------------- |
+| GET    | `/api/themes`                          | List all themes               |
+| GET    | `/api/themes/:id`                      | Get theme by ID               |
+| POST   | `/api/themes`                          | Create a theme                |
+| PATCH  | `/api/themes/:id`                      | Update a theme                |
+| DELETE | `/api/themes/:id`                      | Delete a theme                |
+| POST   | `/api/projects/:slug/apply-theme`      | Apply theme to project        |
+| GET    | `/api/projects/:slug/theme`            | Get effective project theme   |
+| GET    | `/api/projects/:slug/available-themes` | Get themes available to apply |
 
 ## Next Steps
 

@@ -1,6 +1,6 @@
 /**
  * KnowledgeBook TypeScript/JavaScript SDK
- * 
+ *
  * Official SDK for KnowledgeBook documentation platform
  * Provides typed interfaces and helper functions for all APIs
  */
@@ -113,7 +113,7 @@ export class KnowledgeBook {
   private async request(endpoint: string, options?: RequestInit) {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
-      ...options?.headers
+      ...options?.headers,
     };
 
     if (this.apiKey) {
@@ -125,7 +125,7 @@ export class KnowledgeBook {
 
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       ...options,
-      headers
+      headers,
     });
 
     if (!response.ok) {
@@ -148,20 +148,20 @@ export class KnowledgeBook {
   async createProject(data: Partial<Project>): Promise<Project> {
     return this.request('/api/projects', {
       method: 'POST',
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
   }
 
   async updateProject(slug: string, data: Partial<Project>): Promise<Project> {
     return this.request(`/api/projects/${slug}`, {
       method: 'PATCH',
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
   }
 
   async deleteProject(slug: string): Promise<void> {
     await this.request(`/api/projects/${slug}`, {
-      method: 'DELETE'
+      method: 'DELETE',
     });
   }
 
@@ -173,7 +173,11 @@ export class KnowledgeBook {
   ): Promise<Project> {
     return this.request('/api/projects/import-gitbook', {
       method: 'POST',
-      body: JSON.stringify({ gitbook_url: gitbookUrl, project_name: projectName, project_description: description })
+      body: JSON.stringify({
+        gitbook_url: gitbookUrl,
+        project_name: projectName,
+        project_description: description,
+      }),
     });
   }
 
@@ -185,20 +189,24 @@ export class KnowledgeBook {
   async createSection(projectSlug: string, data: Partial<Section>): Promise<Section> {
     return this.request(`/api/projects/${projectSlug}/sections`, {
       method: 'POST',
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
   }
 
-  async updateSection(projectSlug: string, sectionId: number, data: Partial<Section>): Promise<Section> {
+  async updateSection(
+    projectSlug: string,
+    sectionId: number,
+    data: Partial<Section>
+  ): Promise<Section> {
     return this.request(`/api/projects/${projectSlug}/sections/${sectionId}`, {
       method: 'PATCH',
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
   }
 
   async deleteSection(projectSlug: string, sectionId: number): Promise<void> {
     await this.request(`/api/projects/${projectSlug}/sections/${sectionId}`, {
-      method: 'DELETE'
+      method: 'DELETE',
     });
   }
 
@@ -214,20 +222,20 @@ export class KnowledgeBook {
   async createPage(projectSlug: string, data: Partial<Page>): Promise<Page> {
     return this.request(`/api/projects/${projectSlug}/pages`, {
       method: 'POST',
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
   }
 
   async updatePage(projectSlug: string, pageId: number, data: Partial<Page>): Promise<Page> {
     return this.request(`/api/projects/${projectSlug}/pages/${pageId}`, {
       method: 'PATCH',
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
   }
 
   async deletePage(projectSlug: string, pageId: number): Promise<void> {
     await this.request(`/api/projects/${projectSlug}/pages/${pageId}`, {
-      method: 'DELETE'
+      method: 'DELETE',
     });
   }
 
@@ -236,16 +244,20 @@ export class KnowledgeBook {
     return this.request(`/api/projects/${projectSlug}/members`);
   }
 
-  async addMember(projectSlug: string, email: string, role: 'admin' | 'member' = 'member'): Promise<Member> {
+  async addMember(
+    projectSlug: string,
+    email: string,
+    role: 'admin' | 'member' = 'member'
+  ): Promise<Member> {
     return this.request(`/api/projects/${projectSlug}/members`, {
       method: 'POST',
-      body: JSON.stringify({ email, role })
+      body: JSON.stringify({ email, role }),
     });
   }
 
   async removeMember(projectSlug: string, memberId: number): Promise<void> {
     await this.request(`/api/projects/${projectSlug}/members/${memberId}`, {
-      method: 'DELETE'
+      method: 'DELETE',
     });
   }
 
@@ -262,7 +274,7 @@ export class KnowledgeBook {
     const response = await fetch(`${this.baseUrl}/api/projects/${projectSlug}/upload`, {
       method: 'POST',
       headers,
-      body: formData
+      body: formData,
     });
 
     if (!response.ok) {
@@ -281,7 +293,7 @@ export class KnowledgeBook {
   async updateTheme(projectSlug: string, data: Partial<Theme>): Promise<Theme> {
     return this.request(`/api/projects/${projectSlug}/theme`, {
       method: 'PATCH',
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
   }
 
@@ -293,7 +305,7 @@ export class KnowledgeBook {
   ): Promise<{ token: string; user: WalletUser }> {
     return this.request('/api/auth/wallet/login', {
       method: 'POST',
-      body: JSON.stringify({ address, message, signature })
+      body: JSON.stringify({ address, message, signature }),
     });
   }
 
@@ -311,12 +323,15 @@ export class KnowledgeBook {
         token_contract: tokenContract,
         network,
         token_type: tokenType,
-        value
-      })
+        value,
+      }),
     });
   }
 
-  async checkTokenAccess(projectSlug: string, walletAddress: string): Promise<{ hasAccess: boolean; reason?: string }> {
+  async checkTokenAccess(
+    projectSlug: string,
+    walletAddress: string
+  ): Promise<{ hasAccess: boolean; reason?: string }> {
     return this.request(`/api/token-gate/${projectSlug}/check/${walletAddress}`);
   }
 
@@ -334,8 +349,8 @@ export class KnowledgeBook {
         nft_contract: nftContract,
         nft_token_id: nftTokenId,
         network,
-        owner_address: ownerAddress
-      })
+        owner_address: ownerAddress,
+      }),
     });
   }
 
@@ -352,8 +367,8 @@ export class KnowledgeBook {
         from_wallet: fromWallet,
         to_wallet: toWallet,
         nft_contract: nftContract,
-        nft_token_id: nftTokenId
-      })
+        nft_token_id: nftTokenId,
+      }),
     });
   }
 
@@ -379,17 +394,17 @@ export class KnowledgeBook {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json, text/event-stream'
+        Accept: 'application/json, text/event-stream',
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
         method: 'tools/call',
         params: {
           name: toolName,
-          arguments: params
+          arguments: params,
         },
-        id: 1
-      })
+        id: 1,
+      }),
     });
 
     const result = await response.json();

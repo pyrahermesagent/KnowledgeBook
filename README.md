@@ -39,15 +39,15 @@ with the redirect URI `http://localhost:3000/api/auth/google` (use your producti
 
 All secrets live in `.env` (see [.env.example](.env.example)):
 
-| Variable | Purpose |
-| --- | --- |
-| `NUXT_OAUTH_GOOGLE_CLIENT_ID` / `NUXT_OAUTH_GOOGLE_CLIENT_SECRET` | Google OAuth credentials |
-| `NUXT_OAUTH_GOOGLE_REDIRECT_URL` | Public OAuth callback URL, e.g. `https://knowledgebook.plutolabs.app/api/auth/google`. Required behind a reverse proxy to avoid `redirect_uri_mismatch` |
-| `NUXT_SESSION_PASSWORD` | Cookie encryption key (32+ random chars) |
-| `NUXT_DATABASE_PATH` | SQLite database file location |
-| `NUXT_S3_ENDPOINT`, `NUXT_S3_REGION`, `NUXT_S3_BUCKET`, `NUXT_S3_ACCESS_KEY`, `NUXT_S3_SECRET_KEY` | Hetzner Object Storage (S3-compatible) |
-| `NUXT_S3_PUBLIC_URL` | Optional public base URL for uploaded objects |
-| `NUXT_UPLOADS_DIR` | Local-disk upload fallback directory |
+| Variable                                                                                           | Purpose                                                                                                                                                 |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NUXT_OAUTH_GOOGLE_CLIENT_ID` / `NUXT_OAUTH_GOOGLE_CLIENT_SECRET`                                  | Google OAuth credentials                                                                                                                                |
+| `NUXT_OAUTH_GOOGLE_REDIRECT_URL`                                                                   | Public OAuth callback URL, e.g. `https://knowledgebook.plutolabs.app/api/auth/google`. Required behind a reverse proxy to avoid `redirect_uri_mismatch` |
+| `NUXT_SESSION_PASSWORD`                                                                            | Cookie encryption key (32+ random chars)                                                                                                                |
+| `NUXT_DATABASE_PATH`                                                                               | SQLite database file location                                                                                                                           |
+| `NUXT_S3_ENDPOINT`, `NUXT_S3_REGION`, `NUXT_S3_BUCKET`, `NUXT_S3_ACCESS_KEY`, `NUXT_S3_SECRET_KEY` | Hetzner Object Storage (S3-compatible)                                                                                                                  |
+| `NUXT_S3_PUBLIC_URL`                                                                               | Optional public base URL for uploaded objects                                                                                                           |
+| `NUXT_UPLOADS_DIR`                                                                                 | Local-disk upload fallback directory                                                                                                                    |
 
 ## AI agents (MCP)
 
@@ -56,12 +56,12 @@ The documentation is readable by AI agents through the
 Streamable HTTP MCP server runs at **`/mcp`** and exposes read-only tools over
 the same public content as the docs pages:
 
-| Tool | Purpose |
-| --- | --- |
-| `list_projects` | Discover the documentation projects on this instance |
-| `get_project` | Section/page tree of one project (returns page slugs) |
-| `get_page` | Full markdown content of a page |
-| `search` | Full-text search across titles and content, optionally per project |
+| Tool            | Purpose                                                            |
+| --------------- | ------------------------------------------------------------------ |
+| `list_projects` | Discover the documentation projects on this instance               |
+| `get_project`   | Section/page tree of one project (returns page slugs)              |
+| `get_page`      | Full markdown content of a page                                    |
+| `search`        | Full-text search across titles and content, optionally per project |
 
 Connect from Claude Code:
 
@@ -95,14 +95,14 @@ Every push to `main` runs [GitHub Actions](.github/workflows/publish.yml), which
 The deploy step is skipped until the SSH secrets are configured. Set these repository
 secrets (Settings → Secrets and variables → Actions):
 
-| Secret | Purpose |
-| --- | --- |
-| `SSH_HOST`, `SSH_USER`, `SSH_PORT`, `SSH_KEY` | SSH access to the Hetzner server (private key) |
-| `DEPLOY_DIR` | Checkout directory on the server (default `/opt/knowledgebook`) |
-| `APP_URL` | Public origin of the app (default `https://knowledgebook.plutolabs.app`), used for the OAuth callback URL |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth credentials |
-| `SESSION_PASSWORD` | Cookie encryption key (32+ random chars) |
-| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_PUBLIC_URL` | Hetzner Object Storage |
+| Secret                                                                                     | Purpose                                                                                                   |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `SSH_HOST`, `SSH_USER`, `SSH_PORT`, `SSH_KEY`                                              | SSH access to the Hetzner server (private key)                                                            |
+| `DEPLOY_DIR`                                                                               | Checkout directory on the server (default `/opt/knowledgebook`)                                           |
+| `APP_URL`                                                                                  | Public origin of the app (default `https://knowledgebook.plutolabs.app`), used for the OAuth callback URL |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`                                                 | Google OAuth credentials                                                                                  |
+| `SESSION_PASSWORD`                                                                         | Cookie encryption key (32+ random chars)                                                                  |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_PUBLIC_URL` | Hetzner Object Storage                                                                                    |
 
 The server needs `git` and Docker with the compose plugin installed. You can also
 trigger a deploy manually from the Actions tab (`workflow_dispatch`).

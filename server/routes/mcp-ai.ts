@@ -7,8 +7,6 @@ import { z } from 'zod';
 
 const AI_MODEL = process.env.AI_MODEL || 'gpt-4o-mini';
 const AI_PROVIDER = process.env.AI_PROVIDER || 'openai';
-const MAX_SEARCH_RESULTS = 20;
-const SNIPPET_CONTEXT = 160;
 
 interface PageRow {
   id: number;
@@ -19,13 +17,6 @@ interface PageRow {
   project_id: number;
   section_id: number | null;
   position: number;
-}
-
-interface ProjectRow {
-  id: number;
-  slug: string;
-  name: string;
-  description: string;
 }
 
 function text(value: string) {
@@ -40,9 +31,12 @@ function errorText(value: string) {
 // AI API CALLS
 // ============================================================================
 
-async function callAI(messages: { role: 'system' | 'user' | 'assistant'; content: string }[], temperature = 0.7): Promise<string> {
+async function callAI(
+  messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
+  temperature = 0.7
+): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY;
-  
+
   if (!apiKey) {
     throw new Error('AI API key not configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY.');
   }
@@ -55,7 +49,7 @@ async function callAI(messages: { role: 'system' | 'user' | 'assistant'; content
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
           model: AI_MODEL,
@@ -74,8 +68,8 @@ async function callAI(messages: { role: 'system' | 'user' | 'assistant'; content
         },
         body: JSON.stringify({
           model: AI_MODEL.replace('-mini', '-3-sonnet'),
-          messages: messages.filter(m => m.role !== 'system'),
-          system: messages.find(m => m.role === 'system')?.content,
+          messages: messages.filter((m) => m.role !== 'system'),
+          system: messages.find((m) => m.role === 'system')?.content,
           temperature,
           max_tokens: 2000,
         }),
@@ -90,9 +84,7 @@ async function callAI(messages: { role: 'system' | 'user' | 'assistant'; content
     }
 
     const data = await response.json();
-    return AI_PROVIDER === 'openai'
-      ? data.choices[0].message.content
-      : data.content[0].text;
+    return AI_PROVIDER === 'openai' ? data.choices[0].message.content : data.content[0].text;
   } catch (error) {
     console.error('AI API call error:', error);
     throw new Error(`AI API call failed: ${error.message}`);
@@ -103,7 +95,11 @@ async function callAI(messages: { role: 'system' | 'user' | 'assistant'; content
 // Smart Content Generation Tools
 // ============================================================================
 
-async function generateContentFromOutline(projectId: number, outline: string, tone: string = 'technical'): Promise<string> {
+async function generateContentFromOutline(
+  projectId: number,
+  outline: string,
+  tone: string = 'technical'
+): Promise<string> {
   const prompt = `
 You are a documentation writer. Generate comprehensive content from the following outline.
 
@@ -121,13 +117,24 @@ Requirements:
 
 Output the complete documentation content in markdown format.`;
 
-  return await callAI([
-    { role: 'system', content: 'You are an expert technical writer who creates comprehensive documentation.' },
-    { role: 'user', content: prompt }
-  ], 0.7);
+  return await callAI(
+    [
+      {
+        role: 'system',
+        content: 'You are an expert technical writer who creates comprehensive documentation.',
+      },
+      { role: 'user', content: prompt },
+    ],
+    0.7
+  );
 }
 
-async function autoCompleteSection(projectId: number, pageId: number, sectionTitle: string, expandWith: string = 'details'): Promise<string> {
+async function autoCompleteSection(
+  projectId: number,
+  pageId: number,
+  sectionTitle: string,
+  expandWith: string = 'details'
+): Promise<string> {
   const prompt = `
 You are a documentation writer. Expand the following section with ${expandWith}.
 
@@ -142,13 +149,22 @@ Requirements:
 
 Output only the expanded content in markdown format.`;
 
-  return await callAI([
-    { role: 'system', content: 'You are an expert technical writer who creates comprehensive documentation.' },
-    { role: 'user', content: prompt }
-  ], 0.8);
+  return await callAI(
+    [
+      {
+        role: 'system',
+        content: 'You are an expert technical writer who creates comprehensive documentation.',
+      },
+      { role: 'user', content: prompt },
+    ],
+    0.8
+  );
 }
 
-async function generateCodeExample(context: string, languages: string[]): Promise<{[key: string]: string}> {
+async function generateCodeExample(
+  context: string,
+  languages: string[]
+): Promise<{ [key: string]: string }> {
   const prompt = `
 You are a code example generator. Generate executable code examples for the following context.
 
@@ -168,18 +184,24 @@ For each language, output:
 
 Format your response as a JSON object with language names as keys.`;
 
-  const response = await callAI([
-    { role: 'system', content: 'You are an expert programmer who writes clear, executable code examples.' },
-    { role: 'user', content: prompt }
-  ], 0.6);
+  const response = await callAI(
+    [
+      {
+        role: 'system',
+        content: 'You are an expert programmer who writes clear, executable code examples.',
+      },
+      { role: 'user', content: prompt },
+    ],
+    0.6
+  );
 
   // Try to parse as JSON, fallback to parsing text
   try {
     return JSON.parse(response);
   } catch {
     // Simple fallback parsing
-    const result: {[key: string]: string} = {};
-    languages.forEach(lang => {
+    const result: { [key: string]: string } = {};
+    languages.forEach((lang) => {
       result[lang] = response;
     });
     return result;
@@ -190,9 +212,13 @@ Format your response as a JSON object with language names as keys.`;
 // Content Assistant Tools
 // ============================================================================
 
-async function answerDocQuestion(projectId: number, question: string, pageId?: number): Promise<string> {
+async function answerDocQuestion(
+  projectId: number,
+  question: string,
+  pageId?: number
+): Promise<string> {
   const pageContext = pageId ? `Page ID: ${pageId}\n` : '';
-  
+
   const prompt = `
 You are a helpful documentation assistant. Answer the following question about the documentation.
 
@@ -207,10 +233,17 @@ Requirements:
 
 Answer:`;
 
-  return await callAI([
-    { role: 'system', content: 'You are a helpful assistant that answers documentation questions accurately and concisely.' },
-    { role: 'user', content: prompt }
-  ], 0.5);
+  return await callAI(
+    [
+      {
+        role: 'system',
+        content:
+          'You are a helpful assistant that answers documentation questions accurately and concisely.',
+      },
+      { role: 'user', content: prompt },
+    ],
+    0.5
+  );
 }
 
 async function adjustStyle(content: string, targetStyle: string): Promise<string> {
@@ -229,10 +262,16 @@ Requirements:
 
 Rewritten content:`;
 
-  return await callAI([
-    { role: 'system', content: 'You are an expert technical writer who can adapt content to different styles.' },
-    { role: 'user', content: prompt }
-  ], 0.7);
+  return await callAI(
+    [
+      {
+        role: 'system',
+        content: 'You are an expert technical writer who can adapt content to different styles.',
+      },
+      { role: 'user', content: prompt },
+    ],
+    0.7
+  );
 }
 
 async function improveClarity(content: string, focus: string = 'grammar'): Promise<string> {
@@ -251,17 +290,23 @@ Requirements:
 
 Corrected content:`;
 
-  return await callAI([
-    { role: 'system', content: 'You are an expert technical writer who excels at improving content quality.' },
-    { role: 'user', content: prompt }
-  ], 0.6);
+  return await callAI(
+    [
+      {
+        role: 'system',
+        content: 'You are an expert technical writer who excels at improving content quality.',
+      },
+      { role: 'user', content: prompt },
+    ],
+    0.6
+  );
 }
 
 // ============================================================================
 // Translation Tools
 // ============================================================================
 
-async function detectLanguage(content: string): Promise<{language: string; confidence: number}> {
+async function detectLanguage(content: string): Promise<{ language: string; confidence: number }> {
   const prompt = `
 Detect the language of the following content and provide a confidence score.
 
@@ -273,10 +318,13 @@ Output a JSON object with:
 
 Output only the JSON object.`;
 
-  const response = await callAI([
-    { role: 'system', content: 'You are a language detection expert.' },
-    { role: 'user', content: prompt }
-  ], 0.3);
+  const response = await callAI(
+    [
+      { role: 'system', content: 'You are a language detection expert.' },
+      { role: 'user', content: prompt },
+    ],
+    0.3
+  );
 
   try {
     return JSON.parse(response);
@@ -285,9 +333,13 @@ Output only the JSON object.`;
   }
 }
 
-async function translateContent(content: string, targetLang: string, sourceLang?: string): Promise<string> {
+async function translateContent(
+  content: string,
+  targetLang: string,
+  sourceLang?: string
+): Promise<string> {
   const sourceContext = sourceLang ? `Source language: ${sourceLang}\n` : '';
-  
+
   const prompt = `
 Translate the following documentation content to ${targetLang}.
 
@@ -302,10 +354,17 @@ Requirements:
 
 Translated content:`;
 
-  return await callAI([
-    { role: 'system', content: 'You are an expert technical translator who maintains accuracy in technical documentation.' },
-    { role: 'user', content: prompt }
-  ], 0.7);
+  return await callAI(
+    [
+      {
+        role: 'system',
+        content:
+          'You are an expert technical translator who maintains accuracy in technical documentation.',
+      },
+      { role: 'user', content: prompt },
+    ],
+    0.7
+  );
 }
 
 // ============================================================================
@@ -326,10 +385,16 @@ Output a JSON object with:
 - engagementPatterns: string describing patterns
 - suggestions: array of improvement suggestions`;
 
-  return await callAI([
-    { role: 'system', content: 'You are an analytics expert who analyzes documentation usage patterns.' },
-    { role: 'user', content: prompt }
-  ], 0.5);
+  return await callAI(
+    [
+      {
+        role: 'system',
+        content: 'You are an analytics expert who analyzes documentation usage patterns.',
+      },
+      { role: 'user', content: prompt },
+    ],
+    0.5
+  );
 }
 
 async function detectContentGaps(projectId: number, content: string): Promise<string> {
@@ -349,10 +414,16 @@ Output a JSON object with:
 - gaps: array of {section, length, type, suggestion} objects
 - overallAssessment: string`;
 
-  return await callAI([
-    { role: 'system', content: 'You are an expert technical writer who identifies content gaps.' },
-    { role: 'user', content: prompt }
-  ], 0.6);
+  return await callAI(
+    [
+      {
+        role: 'system',
+        content: 'You are an expert technical writer who identifies content gaps.',
+      },
+      { role: 'user', content: prompt },
+    ],
+    0.6
+  );
 }
 
 // ============================================================================
@@ -365,20 +436,26 @@ export function registerAiTools(server: McpServer) {
     'generate_content_from_outline',
     {
       title: 'Generate content from outline',
-      description: 'Generate full page content from a structured outline. Use this when creating new documentation pages.',
+      description:
+        'Generate full page content from a structured outline. Use this when creating new documentation pages.',
       inputSchema: {
         project: z.string().describe('Project slug'),
         outline: z.string().describe('Markdown outline with # H1, ## H2 sections'),
-        tone: z.string().optional().default('technical').describe('Writing tone: technical, beginner-friendly, marketing, etc.'),
+        tone: z
+          .string()
+          .optional()
+          .default('technical')
+          .describe('Writing tone: technical, beginner-friendly, marketing, etc.'),
       },
     },
     async ({ project, outline, tone }) => {
-      const db = useDb();
       const projectRow = getProjectBySlug(project.trim());
       if (!projectRow) {
-        return errorText(`No project with slug "${project}". Call list_projects to see available projects.`);
+        return errorText(
+          `No project with slug "${project}". Call list_projects to see available projects.`
+        );
       }
-      
+
       try {
         const content = await generateContentFromOutline(projectRow.id, outline, tone);
         return text(`Content generated successfully. Review and refine as needed:\n\n${content}`);
@@ -392,12 +469,17 @@ export function registerAiTools(server: McpServer) {
     'complete_section',
     {
       title: 'Auto-complete section content',
-      description: 'Expand a partial section with detailed content. Use when a section needs expansion.',
+      description:
+        'Expand a partial section with detailed content. Use when a section needs expansion.',
       inputSchema: {
         project: z.string().describe('Project slug'),
         page: z.string().describe('Page slug'),
         section: z.string().describe('Section title to complete'),
-        expand_with: z.string().optional().default('details').describe('What to add: examples, details, code samples'),
+        expand_with: z
+          .string()
+          .optional()
+          .default('details')
+          .describe('What to add: examples, details, code samples'),
       },
     },
     async ({ project, page, section, expand_with }) => {
@@ -406,13 +488,14 @@ export function registerAiTools(server: McpServer) {
       if (!projectRow) {
         return errorText(`No project with slug "${project}".`);
       }
-      
-      const pageRow = db.prepare('SELECT id, content FROM pages WHERE project_id = ? AND slug = ?')
+
+      const pageRow = db
+        .prepare('SELECT id, content FROM pages WHERE project_id = ? AND slug = ?')
         .get(projectRow.id, page.trim()) as PageRow | undefined;
       if (!pageRow) {
         return errorText(`No page "${page}" in project "${project}".`);
       }
-      
+
       try {
         const content = await autoCompleteSection(projectRow.id, pageRow.id, section, expand_with);
         return text(`Section expanded:\n\n${content}`);
@@ -433,7 +516,7 @@ export function registerAiTools(server: McpServer) {
         languages: z.array(z.string()).default(['javascript']).describe('Target languages'),
       },
     },
-    async ({ project, context, languages }) => {
+    async ({ context, languages }) => {
       try {
         const examples = await generateCodeExample(context, languages);
         let output = 'Code examples generated:\n\n';
@@ -452,7 +535,8 @@ export function registerAiTools(server: McpServer) {
     'doc_qa',
     {
       title: 'Documentation Q&A',
-      description: 'Answer documentation questions with context-aware responses. Fast response (<2 seconds).',
+      description:
+        'Answer documentation questions with context-aware responses. Fast response (<2 seconds).',
       inputSchema: {
         project: z.string().describe('Project slug'),
         question: z.string().describe('Question about the documentation'),
@@ -465,16 +549,17 @@ export function registerAiTools(server: McpServer) {
       if (!projectRow) {
         return errorText(`No project with slug "${project}".`);
       }
-      
+
       let pageId: number | undefined;
       if (page) {
-        const pageRow = db.prepare('SELECT id FROM pages WHERE project_id = ? AND slug = ?')
+        const pageRow = db
+          .prepare('SELECT id FROM pages WHERE project_id = ? AND slug = ?')
           .get(projectRow.id, page.trim());
         if (pageRow) {
           pageId = (pageRow as { id: number }).id;
         }
       }
-      
+
       try {
         const answer = await answerDocQuestion(projectRow.id, question, pageId);
         // Ensure response is fast by using a simpler model and shorter response
@@ -493,10 +578,12 @@ export function registerAiTools(server: McpServer) {
       inputSchema: {
         project: z.string().describe('Project slug'),
         content: z.string().describe('Content to rewrite'),
-        target_style: z.string().describe('Style name: technical, beginner, marketing, academic, conversational'),
+        target_style: z
+          .string()
+          .describe('Style name: technical, beginner, marketing, academic, conversational'),
       },
     },
-    async ({ project, content, target_style }) => {
+    async ({ content, target_style }) => {
       try {
         const rewritten = await adjustStyle(content, target_style);
         return text(`Content rewritten to ${target_style} style:\n\n${rewritten}`);
@@ -514,10 +601,14 @@ export function registerAiTools(server: McpServer) {
       inputSchema: {
         project: z.string().describe('Project slug'),
         content: z.string().describe('Content to improve'),
-        focus: z.string().optional().default('grammar').describe('Focus: grammar, clarity, conciseness, tone'),
+        focus: z
+          .string()
+          .optional()
+          .default('grammar')
+          .describe('Focus: grammar, clarity, conciseness, tone'),
       },
     },
-    async ({ project, content, focus }) => {
+    async ({ content, focus }) => {
       try {
         const improved = await improveClarity(content, focus);
         return text(`Content improved (focus: ${focus}):\n\n${improved}`);
@@ -532,7 +623,8 @@ export function registerAiTools(server: McpServer) {
     'translate_page',
     {
       title: 'Translate documentation page',
-      description: 'Translate a page to supported languages with quality scoring. Supports: en, zh, es, fr, de, ja, ko, ru, pt, it, ar, hi',
+      description:
+        'Translate a page to supported languages with quality scoring. Supports: en, zh, es, fr, de, ja, ko, ru, pt, it, ar, hi',
       inputSchema: {
         project: z.string().describe('Project slug'),
         page: z.string().describe('Page slug'),
@@ -545,23 +637,30 @@ export function registerAiTools(server: McpServer) {
       if (!projectRow) {
         return errorText(`No project with slug "${project}".`);
       }
-      
-      const pageRow = db.prepare('SELECT id, content, title FROM pages WHERE project_id = ? AND slug = ?')
+
+      const pageRow = db
+        .prepare('SELECT id, content, title FROM pages WHERE project_id = ? AND slug = ?')
         .get(projectRow.id, page.trim()) as PageRow | undefined;
       if (!pageRow) {
         return errorText(`No page "${page}" in project "${project}".`);
       }
-      
+
       try {
         const sourceLang = await detectLanguage(pageRow.content);
-        const translated = await translateContent(pageRow.content, target_lang, sourceLang.language);
-        
+        const translated = await translateContent(
+          pageRow.content,
+          target_lang,
+          sourceLang.language
+        );
+
         // Store translation in database
-        db.prepare(`
+        db.prepare(
+          `
           INSERT INTO translations (project_id, page_id, source_lang, target_lang, translated_content, status)
           VALUES (?, ?, ?, ?, ?, 'pending')
-        `).run(projectRow.id, pageRow.id, sourceLang.language, target_lang, translated);
-        
+        `
+        ).run(projectRow.id, pageRow.id, sourceLang.language, target_lang, translated);
+
         return text(`Page translated to ${target_lang}:\n\n${translated.substring(0, 2000)}...`);
       } catch (error) {
         return errorText(`Translation failed: ${error.message}`);
@@ -581,7 +680,9 @@ export function registerAiTools(server: McpServer) {
     async ({ content }) => {
       try {
         const result = await detectLanguage(content);
-        return text(`Detected language: ${result.language} (confidence: ${(result.confidence * 100).toFixed(1)}%)`);
+        return text(
+          `Detected language: ${result.language} (confidence: ${(result.confidence * 100).toFixed(1)}%)`
+        );
       } catch (error) {
         return errorText(`Language detection failed: ${error.message}`);
       }
@@ -600,12 +701,11 @@ export function registerAiTools(server: McpServer) {
       },
     },
     async ({ project, period }) => {
-      const db = useDb();
       const projectRow = getProjectBySlug(project.trim());
       if (!projectRow) {
         return errorText(`No project with slug "${project}".`);
       }
-      
+
       try {
         const patterns = await getContentPatterns(projectRow.id);
         return text(`Content patterns for project "${project}" (last ${period}):\n\n${patterns}`);
@@ -631,13 +731,14 @@ export function registerAiTools(server: McpServer) {
       if (!projectRow) {
         return errorText(`No project with slug "${project}".`);
       }
-      
-      const pageRow = db.prepare('SELECT content FROM pages WHERE project_id = ? AND slug = ?')
+
+      const pageRow = db
+        .prepare('SELECT content FROM pages WHERE project_id = ? AND slug = ?')
         .get(projectRow.id, page.trim()) as { content: string } | undefined;
       if (!pageRow) {
         return errorText(`No page "${page}" in project "${project}".`);
       }
-      
+
       try {
         const gaps = await detectContentGaps(projectRow.id, pageRow.content);
         return text(`Content gaps for "${page}":\n\n${gaps}`);

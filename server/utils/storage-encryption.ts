@@ -1,5 +1,4 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import crypto from 'node:crypto';
 import { encrypt } from '#server/services/encryption';
 import { getEncryptionKey } from '#server/services/encryption';
 

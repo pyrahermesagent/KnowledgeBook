@@ -1,11 +1,11 @@
 /**
  * Main benchmark runner
- * 
+ *
  * Runs all benchmarks and generates a report.
  * Usage: npm run bench
  */
 
-import { runBenchmarks } from './runner.mjs'
+import { runBenchmarks } from './runner.mjs';
 
 const config = {
   thresholds: {
@@ -36,60 +36,84 @@ const config = {
       regressionPct: 20, // >20% higher is regression
     },
   },
-}
+};
 
 async function main() {
-  console.log('KnowledgeBook Performance Benchmarks\n')
-  console.log('Thresholds:')
-  console.log('  Latency: >10% slower = regression')
-  console.log('  Throughput: >15% lower = regression')
-  console.log('  Memory: >20% higher = regression\n')
+  console.log('KnowledgeBook Performance Benchmarks\n');
+  console.log('Thresholds:');
+  console.log('  Latency: >10% slower = regression');
+  console.log('  Throughput: >15% lower = regression');
+  console.log('  Memory: >20% higher = regression\n');
 
-  const results = await runBenchmarks(config)
+  const results = await runBenchmarks(config);
 
-  console.log('\n=== BENCHMARK RESULTS ===\n')
-  
+  console.log('\n=== BENCHMARK RESULTS ===\n');
+
   // Latency results
-  console.log('Latency (ms):')
+  console.log('Latency (ms):');
   for (const [name, time] of Object.entries(results.latency)) {
-    const status = time > config.thresholds.latency.maxTimeMs[name.replace(/([A-Z])/g, ' $1').trim().toLowerCase().replace(/ /g, '')] ? '✗ REGRESSION' : '✓ OK'
-    console.log(`  ${name}: ${time.toFixed(2)}ms ${status}`)
+    const status =
+      time >
+      config.thresholds.latency.maxTimeMs[
+        name
+          .replace(/([A-Z])/g, ' $1')
+          .trim()
+          .toLowerCase()
+          .replace(/ /g, '')
+      ]
+        ? '✗ REGRESSION'
+        : '✓ OK';
+    console.log(`  ${name}: ${time.toFixed(2)}ms ${status}`);
   }
 
   // Throughput results
-  console.log('\nThroughput (ops/sec):')
+  console.log('\nThroughput (ops/sec):');
   for (const [name, ops] of Object.entries(results.throughput)) {
-    const threshold = config.thresholds.throughput[`min${name.charAt(0).toUpperCase() + name.slice(1)}`] || 20
-    const status = ops < threshold ? '✗ REGRESSION' : '✓ OK'
-    console.log(`  ${name}: ${ops.toFixed(2)} ${status}`)
+    const threshold =
+      config.thresholds.throughput[`min${name.charAt(0).toUpperCase() + name.slice(1)}`] || 20;
+    const status = ops < threshold ? '✗ REGRESSION' : '✓ OK';
+    console.log(`  ${name}: ${ops.toFixed(2)} ${status}`);
   }
 
   // Memory results
-  console.log('\nMemory (MB RSS):')
+  console.log('\nMemory (MB RSS):');
   for (const [name, rss] of Object.entries(results.memory)) {
-    const status = rss > (config.thresholds.memory.maxRssMb[name.replace(/([A-Z])/g, ' $1').trim().toLowerCase().replace(/ /g, '')] || 50) ? '✗ REGRESSION' : '✓ OK'
-    console.log(`  ${name}: ${rss.toFixed(2)} ${status}`)
+    const status =
+      rss >
+      (config.thresholds.memory.maxRssMb[
+        name
+          .replace(/([A-Z])/g, ' $1')
+          .trim()
+          .toLowerCase()
+          .replace(/ /g, '')
+      ] || 50)
+        ? '✗ REGRESSION'
+        : '✓ OK';
+    console.log(`  ${name}: ${rss.toFixed(2)} ${status}`);
   }
 
-  console.log('\n=== SUMMARY ===')
-  const totalTests = Object.keys(results.latency).length + Object.keys(results.throughput).length + Object.keys(results.memory).length
-  const passing = totalTests - results.regressions.length
-  console.log(`Total tests: ${totalTests}`)
-  console.log(`Passing: ${passing}`)
-  console.log(`Regressions: ${results.regressions.length}`)
-  
+  console.log('\n=== SUMMARY ===');
+  const totalTests =
+    Object.keys(results.latency).length +
+    Object.keys(results.throughput).length +
+    Object.keys(results.memory).length;
+  const passing = totalTests - results.regressions.length;
+  console.log(`Total tests: ${totalTests}`);
+  console.log(`Passing: ${passing}`);
+  console.log(`Regressions: ${results.regressions.length}`);
+
   if (results.regressions.length > 0) {
-    console.log('\nRegressions detected:')
+    console.log('\nRegressions detected:');
     for (const reg of results.regressions) {
-      console.log(`  - ${reg}`)
+      console.log(`  - ${reg}`);
     }
-    process.exit(1)
+    process.exit(1);
   }
 
-  console.log('\nAll benchmarks passed!')
+  console.log('\nAll benchmarks passed!');
 }
 
-main().catch(err => {
-  console.error('Benchmark failed:', err)
-  process.exit(1)
-})
+main().catch((err) => {
+  console.error('Benchmark failed:', err);
+  process.exit(1);
+});

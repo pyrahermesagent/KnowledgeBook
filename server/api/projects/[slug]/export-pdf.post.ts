@@ -45,7 +45,9 @@ export default defineEventHandler(async (event) => {
   // Get pages for each section
   const sectionsWithPages = sections.map((section: any) => {
     const pages = db
-      .prepare('SELECT id, slug, title, content, position FROM pages WHERE project_id = ? AND section_id = ? ORDER BY position, id')
+      .prepare(
+        'SELECT id, slug, title, content, position FROM pages WHERE project_id = ? AND section_id = ? ORDER BY position, id'
+      )
       .all(project.id, section.id);
     return { ...section, pages };
   });
@@ -67,7 +69,7 @@ export default defineEventHandler(async (event) => {
       fileName: result.fileName,
       filePath: result.pdfPath,
       fileSize: result.fileSize,
-      themes: availableThemes.map(t => ({ name: t, ...getThemeInfo(t) })),
+      themes: availableThemes.map((t) => ({ name: t, ...getThemeInfo(t) })),
     };
   } catch (error) {
     throw createError({

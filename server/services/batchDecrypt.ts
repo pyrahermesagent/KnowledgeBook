@@ -118,7 +118,7 @@ export function getHashCacheStats(): { size: number } {
  */
 export async function decryptPageLazy(
   page: DecryptablePage,
-  projectId: number
+  _projectId: number
 ): Promise<DecryptablePage> {
   if (!page.is_encrypted || !page.encrypted_content || !page.encryption_iv) {
     return page;

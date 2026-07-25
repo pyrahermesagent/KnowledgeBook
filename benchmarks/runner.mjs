@@ -2,25 +2,25 @@
  * Benchmark runner utilities
  */
 
-export async function runBenchmarks(config) {
+export async function runBenchmarks(_config) {
   const results = {
     latency: {},
     throughput: {},
     memory: {},
     /** @type {string[]} */
     regressions: [],
-  }
+  };
 
   // TODO: Parse results from benchmark runs
   // This would require capturing and parsing the output from each benchmark
 
-  return results
+  return results;
 }
 
 export function compareWithBaseline(current, baseline, thresholdPct) {
-  const diff = ((current - baseline) / baseline) * 100
+  const diff = ((current - baseline) / baseline) * 100;
   return {
     diff,
     isRegression: diff > thresholdPct,
-  }
+  };
 }

@@ -2,8 +2,6 @@
 // Supports live preview with theme switching and multi-format rendering
 // Formats: web preview, PDF preview, EPUB preview
 
-import type { H3Event } from 'h3';
-
 export interface PreviewOptions {
   projectSlug: string;
   theme?: string;
@@ -51,7 +49,8 @@ export const AVAILABLE_THEMES: Record<string, PreviewTheme> = {
       border: '#e5e8ec',
     },
     typography: {
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       fontSize: '16px',
       lineHeight: '1.6',
     },
@@ -66,7 +65,8 @@ export const AVAILABLE_THEMES: Record<string, PreviewTheme> = {
       border: '#dddddd',
     },
     typography: {
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       fontSize: '16px',
       lineHeight: '1.6',
     },
@@ -81,7 +81,8 @@ export const AVAILABLE_THEMES: Record<string, PreviewTheme> = {
       border: '#444b59',
     },
     typography: {
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       fontSize: '16px',
       lineHeight: '1.6',
     },
@@ -164,11 +165,13 @@ export const AVAILABLE_THEMES: Record<string, PreviewTheme> = {
 };
 
 // Preview format handlers
-async function previewWebPipeline(options: PreviewOptions & { project: any; sections: any[] }): Promise<PreviewResult> {
+async function previewWebPipeline(
+  options: PreviewOptions & { project: any; sections: any[] }
+): Promise<PreviewResult> {
   const { project, sections, theme = 'default' } = options;
-  
+
   const selectedTheme = AVAILABLE_THEMES[theme] || AVAILABLE_THEMES['default'];
-  
+
   // Generate HTML preview content
   const pagesHtml = sections.flatMap((section: any) =>
     (section.pages || []).map((page: any) => ({
@@ -177,10 +180,10 @@ async function previewWebPipeline(options: PreviewOptions & { project: any; sect
       section: section.title,
     }))
   );
-  
+
   // Generate HTML with embedded styles
   const htmlContent = generatePreviewHtml(project, pagesHtml, selectedTheme);
-  
+
   return {
     success: true,
     previewContent: htmlContent,
@@ -191,15 +194,17 @@ async function previewWebPipeline(options: PreviewOptions & { project: any; sect
   };
 }
 
-async function previewPdfPipeline(options: PreviewOptions & { project: any; sections: any[] }): Promise<PreviewResult> {
+async function previewPdfPipeline(
+  options: PreviewOptions & { project: any; sections: any[] }
+): Promise<PreviewResult> {
   const { project, sections, theme = 'default' } = options;
-  
+
   try {
     // Use existing PDF export functionality
     const { generateHtmlForPdf } = await import('./pdf-export');
-    
+
     const html = await generateHtmlForPdf(project, sections);
-    
+
     return {
       success: true,
       previewContent: html,
@@ -218,9 +223,11 @@ async function previewPdfPipeline(options: PreviewOptions & { project: any; sect
   }
 }
 
-async function previewEpubPipeline(options: PreviewOptions & { project: any; sections: any[] }): Promise<PreviewResult> {
+async function previewEpubPipeline(
+  options: PreviewOptions & { project: any; sections: any[] }
+): Promise<PreviewResult> {
   const { project, sections, theme = 'default' } = options;
-  
+
   // Generate EPUB content for preview
   const pages = sections.flatMap((section: any) =>
     (section.pages || []).map((page: any) => ({
@@ -229,10 +236,14 @@ async function previewEpubPipeline(options: PreviewOptions & { project: any; sec
       section: section.title,
     }))
   );
-  
+
   // Generate simple HTML preview of EPUB content
-  const htmlContent = generateEpubPreviewHtml(project, pages, AVAILABLE_THEMES[theme] || AVAILABLE_THEMES['default']);
-  
+  const htmlContent = generateEpubPreviewHtml(
+    project,
+    pages,
+    AVAILABLE_THEMES[theme] || AVAILABLE_THEMES['default']
+  );
+
   return {
     success: true,
     previewContent: htmlContent,
@@ -244,29 +255,31 @@ async function previewEpubPipeline(options: PreviewOptions & { project: any; sec
 }
 
 // Main preview function
-export async function previewContent(options: PreviewOptions & { project: any; sections: any[] }): Promise<PreviewResult> {
+export async function previewContent(
+  options: PreviewOptions & { project: any; sections: any[] }
+): Promise<PreviewResult> {
   const { format = 'web', project, sections } = options;
-  
+
   if (!project) {
     throw createError({ statusCode: 400, message: 'Project is required for preview' });
   }
-  
+
   if (!sections) {
     throw createError({ statusCode: 400, message: 'Sections are required for preview' });
   }
-  
+
   try {
     // Route to appropriate handler
     switch (format) {
       case 'web':
         return await previewWebPipeline(options);
-      
+
       case 'pdf':
         return await previewPdfPipeline(options);
-      
+
       case 'epub':
         return await previewEpubPipeline(options);
-      
+
       default:
         throw createError({ statusCode: 400, message: `Unsupported preview format: ${format}` });
     }
@@ -292,8 +305,8 @@ export function getTheme(name: string): PreviewTheme | undefined {
 
 // Generate preview HTML with embedded styles
 function generatePreviewHtml(project: any, pages: any[], theme: PreviewTheme): string {
-  const { name, label, colors, typography } = theme;
-  
+  const { name, colors, typography } = theme;
+
   // Generate theme CSS
   const themeStyles = `
     :root {
@@ -379,27 +392,34 @@ function generatePreviewHtml(project: any, pages: any[], theme: PreviewTheme): s
       margin-right: 8px;
     }
   `;
-  
+
   // Generate pages HTML
-  const pagesHtml = pages.map((page: any) => `
+  const pagesHtml = pages
+    .map(
+      (page: any) => `
     <div class="theme-page">
       <h3>${escapeHtml(page.title)}</h3>
       <div class="theme-content">${convertMarkdownToHtml(page.content)}</div>
     </div>
-  `).join('\n');
-  
+  `
+    )
+    .join('\n');
+
   // Generate theme selector
   const themeSelector = `
     <div class="theme-theme-selector">
       <label for="theme-select">Theme:</label>
       <select id="theme-select" onchange="changeTheme(this.value)">
-        ${Object.values(AVAILABLE_THEMES).map(t => 
-          `<option value="${t.name}" ${name === t.name ? 'selected' : ''}>${t.label}</option>`
-        ).join('\n')}
+        ${Object.values(AVAILABLE_THEMES)
+          .map(
+            (t) =>
+              `<option value="${t.name}" ${name === t.name ? 'selected' : ''}>${t.label}</option>`
+          )
+          .join('\n')}
       </select>
     </div>
   `;
-  
+
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -446,7 +466,7 @@ function generatePreviewHtml(project: any, pages: any[], theme: PreviewTheme): s
 // Generate EPUB preview HTML
 function generateEpubPreviewHtml(project: any, pages: any[], theme: PreviewTheme): string {
   const { colors, typography } = theme;
-  
+
   const themeStyles = `
     body {
       font-family: ${typography.fontFamily};
@@ -475,14 +495,18 @@ function generateEpubPreviewHtml(project: any, pages: any[], theme: PreviewTheme
       margin: 8px 0;
     }
   `;
-  
-  const pagesHtml = pages.map((page: any) => `
+
+  const pagesHtml = pages
+    .map(
+      (page: any) => `
     <div class="epub-page">
       <h2>${escapeHtml(page.title)}</h2>
       <div class="epub-content">${convertMarkdownToHtml(page.content)}</div>
     </div>
-  `).join('\n');
-  
+  `
+    )
+    .join('\n');
+
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -515,7 +539,7 @@ function escapeHtml(text: string): string {
 function convertMarkdownToHtml(markdown: string): string {
   // Simple markdown to HTML conversion
   let html = markdown;
-  
+
   // Convert headings
   html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>');
   html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
@@ -523,21 +547,21 @@ function convertMarkdownToHtml(markdown: string): string {
   html = html.replace(/^#### (.*$)/gm, '<h4>$1</h4>');
   html = html.replace(/^##### (.*$)/gm, '<h5>$1</h5>');
   html = html.replace(/^###### (.*$)/gm, '<h6>$1</h6>');
-  
+
   // Convert bold/italic
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-  
+
   // Convert links
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-  
+
   // Convert paragraphs
   html = html.replace(/\n\n/g, '</p><p>');
   html = '<p>' + html + '</p>';
-  
+
   // Clean up
   html = html.replace(/(<p><\/p>)/g, '');
-  
+
   return html;
 }
 
@@ -563,7 +587,7 @@ export async function refreshLivePreview(options: PreviewOptions): Promise<Previ
   if (!livePreviewState) {
     throw createError({ statusCode: 400, message: 'No live preview state available' });
   }
-  
+
   // Simulate live update
   return await previewContent({
     ...options,
@@ -573,16 +597,19 @@ export async function refreshLivePreview(options: PreviewOptions): Promise<Previ
 }
 
 // Validate preview request
-export function validatePreviewRequest(options: PreviewOptions): { valid: boolean; errors: string[] } {
+export function validatePreviewRequest(options: PreviewOptions): {
+  valid: boolean;
+  errors: string[];
+} {
   const errors: string[] = [];
-  
+
   if (!options.projectSlug) {
     errors.push('Project slug is required');
   }
-  
+
   if (options.format && !['web', 'pdf', 'epub'].includes(options.format)) {
     errors.push(`Unsupported preview format: ${options.format}`);
   }
-  
+
   return { valid: errors.length === 0, errors };
 }

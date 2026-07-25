@@ -2,8 +2,6 @@
 // Supports bidirectional sync with external CMS
 // Conflict resolution strategies: ours, theirs, manual, auto-merge
 
-import type { H3Event } from 'h3';
-
 export interface SyncOptions {
   projectSlug: string;
   direction: 'upload' | 'download' | 'bidirectional';
@@ -77,9 +75,9 @@ export const CONFLICT_STRATEGIES = {
 async function syncGitBookPipeline(options: SyncOptions): Promise<SyncResult> {
   // For GitBook sync, we use the existing importGitBookProject
   // with conflict detection and resolution
-  
-  const { remoteUrl, conflictStrategy = 'ours' } = options;
-  
+
+  const { remoteUrl } = options;
+
   if (!remoteUrl) {
     return {
       success: false,
@@ -91,7 +89,7 @@ async function syncGitBookPipeline(options: SyncOptions): Promise<SyncResult> {
       syncedAt: new Date().toISOString(),
     };
   }
-  
+
   // Sync implementation would go here
   // For now, return a placeholder
   return {
@@ -106,8 +104,8 @@ async function syncGitBookPipeline(options: SyncOptions): Promise<SyncResult> {
 }
 
 async function syncConfluencePipeline(options: SyncOptions): Promise<SyncResult> {
-  const { remoteUrl, remoteToken, conflictStrategy = 'ours' } = options;
-  
+  const { remoteUrl, remoteToken } = options;
+
   if (!remoteUrl || !remoteToken) {
     return {
       success: false,
@@ -119,7 +117,7 @@ async function syncConfluencePipeline(options: SyncOptions): Promise<SyncResult>
       syncedAt: new Date().toISOString(),
     };
   }
-  
+
   // Sync implementation would go here
   return {
     success: true,
@@ -133,8 +131,8 @@ async function syncConfluencePipeline(options: SyncOptions): Promise<SyncResult>
 }
 
 async function syncNotionPipeline(options: SyncOptions): Promise<SyncResult> {
-  const { remoteUrl, remoteToken, conflictStrategy = 'ours' } = options;
-  
+  const { remoteUrl, remoteToken } = options;
+
   if (!remoteUrl || !remoteToken) {
     return {
       success: false,
@@ -146,7 +144,7 @@ async function syncNotionPipeline(options: SyncOptions): Promise<SyncResult> {
       syncedAt: new Date().toISOString(),
     };
   }
-  
+
   // Sync implementation would go here
   return {
     success: true,
@@ -160,8 +158,8 @@ async function syncNotionPipeline(options: SyncOptions): Promise<SyncResult> {
 }
 
 async function syncGenericCmsPipeline(options: SyncOptions): Promise<SyncResult> {
-  const { remoteUrl, remoteToken, conflictStrategy = 'auto-merge' } = options;
-  
+  const { remoteUrl } = options;
+
   if (!remoteUrl) {
     return {
       success: false,
@@ -173,7 +171,7 @@ async function syncGenericCmsPipeline(options: SyncOptions): Promise<SyncResult>
       syncedAt: new Date().toISOString(),
     };
   }
-  
+
   // Generic sync implementation
   return {
     success: true,
@@ -188,11 +186,11 @@ async function syncGenericCmsPipeline(options: SyncOptions): Promise<SyncResult>
 
 // Main sync function
 export async function syncContent(options: SyncOptions): Promise<SyncResult> {
-  const { remoteUrl, conflictStrategy = 'auto-merge' } = options;
-  
+  const { remoteUrl } = options;
+
   // Determine sync type based on URL
   let syncType: 'gitbook' | 'confluence' | 'notion' | 'generic';
-  
+
   if (remoteUrl?.includes('gitbook.io')) {
     syncType = 'gitbook';
   } else if (remoteUrl?.includes('.atlassian.net')) {
@@ -202,22 +200,22 @@ export async function syncContent(options: SyncOptions): Promise<SyncResult> {
   } else {
     syncType = 'generic';
   }
-  
+
   try {
     // Route to appropriate handler
     switch (syncType) {
       case 'gitbook':
         return await syncGitBookPipeline(options);
-      
+
       case 'confluence':
         return await syncConfluencePipeline(options);
-      
+
       case 'notion':
         return await syncNotionPipeline(options);
-      
+
       case 'generic':
         return await syncGenericCmsPipeline(options);
-      
+
       default:
         throw createError({ statusCode: 400, message: `Unsupported sync type: ${syncType}` });
     }
@@ -253,7 +251,7 @@ export function resolveConflict(
 
 // Auto-merge strategy for simple conflicts
 export function autoMergeConflicts(conflicts: SyncConflict[]): SyncConflict[] {
-  return conflicts.map(conflict => {
+  return conflicts.map((conflict) => {
     // If there are no actual content differences, auto-resolve
     if (conflict.localVersion === conflict.remoteVersion) {
       return {
@@ -262,7 +260,7 @@ export function autoMergeConflicts(conflicts: SyncConflict[]): SyncConflict[] {
         resolvedVersion: conflict.localVersion,
       };
     }
-    
+
     // For now, just mark as needing manual resolution
     // A real implementation would compare content and merge if possible
     return conflict;
@@ -271,7 +269,7 @@ export function autoMergeConflicts(conflicts: SyncConflict[]): SyncConflict[] {
 
 // Get sync history
 export function getSyncHistory(projectId: string, limit: number = 50): SyncLog[] {
-  const history = syncHistoryStore.filter(log => log.projectId === projectId);
+  const history = syncHistoryStore.filter((log) => log.projectId === projectId);
   return history.slice(-limit).reverse();
 }
 
@@ -283,34 +281,44 @@ export function recordSyncLog(log: Omit<SyncLog, 'id' | 'timestamp' | 'status'>)
     timestamp: new Date().toISOString(),
     status: 'pending',
   };
-  
+
   syncHistoryStore.push(syncLog);
   return syncLog;
 }
 
 // Update sync log status
-export function updateSyncLogStatus(id: string, status: SyncLog['status'], errorMessage?: string): boolean {
-  const index = syncHistoryStore.findIndex(log => log.id === id);
+export function updateSyncLogStatus(
+  id: string,
+  status: SyncLog['status'],
+  errorMessage?: string
+): boolean {
+  const index = syncHistoryStore.findIndex((log) => log.id === id);
   if (index === -1) return false;
-  
+
   syncHistoryStore[index] = {
     ...syncHistoryStore[index],
     status,
     errorMessage,
     timestamp: new Date().toISOString(),
   };
-  
+
   return true;
 }
 
 // Get available conflict strategies
-export function getConflictStrategies(): Record<string, { name: string; description: string; priority: number }> {
+export function getConflictStrategies(): Record<
+  string,
+  { name: string; description: string; priority: number }
+> {
   return CONFLICT_STRATEGIES;
 }
 
 // Resolve all conflicts with a given strategy
-export function resolveAllConflicts(conflicts: SyncConflict[], strategy: 'ours' | 'theirs' | 'manual' = 'ours'): SyncConflict[] {
-  return conflicts.map(conflict => ({
+export function resolveAllConflicts(
+  conflicts: SyncConflict[],
+  strategy: 'ours' | 'theirs' | 'manual' = 'ours'
+): SyncConflict[] {
+  return conflicts.map((conflict) => ({
     ...conflict,
     resolved: true,
     resolvedVersion: resolveConflict(conflict, strategy),
@@ -319,20 +327,17 @@ export function resolveAllConflicts(conflicts: SyncConflict[], strategy: 'ours' 
 }
 
 // Check for conflicts between local and remote content
-export function detectConflicts(
-  localPages: any[],
-  remotePages: any[]
-): SyncConflict[] {
+export function detectConflicts(localPages: any[], remotePages: any[]): SyncConflict[] {
   const conflicts: SyncConflict[] = [];
-  
+
   // Compare pages by slug
-  const localMap = new Map(localPages.map(p => [p.slug, p]));
-  const remoteMap = new Map(remotePages.map(p => [p.slug, p]));
-  
+  const localMap = new Map(localPages.map((p) => [p.slug, p]));
+  const remoteMap = new Map(remotePages.map((p) => [p.slug, p]));
+
   // Find pages that exist in both
   for (const [slug, localPage] of localMap.entries()) {
     const remotePage = remoteMap.get(slug);
-    
+
     if (remotePage) {
       // Check if content differs
       if (localPage.content !== remotePage.content) {
@@ -346,58 +351,63 @@ export function detectConflicts(
       }
     }
   }
-  
+
   // Find pages only in remote (to be added)
-  for (const [slug, remotePage] of remoteMap.entries()) {
+  for (const slug of remoteMap.keys()) {
     if (!localMap.has(slug)) {
       // Would be a new page to create
       // Not a conflict, but worth noting
     }
   }
-  
+
   return conflicts;
 }
 
 // Validate sync request
 export function validateSyncRequest(options: SyncOptions): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
-  
+
   if (!options.projectSlug) {
     errors.push('Project slug is required');
   }
-  
+
   if (!options.remoteUrl) {
     errors.push('Remote URL is required for sync');
   }
-  
+
   if (!['upload', 'download', 'bidirectional'].includes(options.direction)) {
     errors.push(`Invalid sync direction: ${options.direction}`);
   }
-  
-  if (options.conflictStrategy && !['ours', 'theirs', 'manual', 'auto-merge'].includes(options.conflictStrategy)) {
+
+  if (
+    options.conflictStrategy &&
+    !['ours', 'theirs', 'manual', 'auto-merge'].includes(options.conflictStrategy)
+  ) {
     errors.push(`Invalid conflict strategy: ${options.conflictStrategy}`);
   }
-  
+
   return { valid: errors.length === 0, errors };
 }
 
 // Resolve content conflict (alias for resolveConflict for backward compatibility)
-export function resolveContentConflict(conflict: SyncConflict, strategy: 'ours' | 'theirs' | 'manual' = 'ours'): string | undefined {
+export function resolveContentConflict(
+  conflict: SyncConflict,
+  strategy: 'ours' | 'theirs' | 'manual' = 'ours'
+): string | undefined {
   return resolveConflict(conflict, strategy);
 }
 
 // Get project conflicts (wrapper for detectConflicts)
-export function getProjectConflicts(event: any): SyncConflict[] {
+export function getProjectConflicts(_event: any): SyncConflict[] {
   return detectConflicts([], []);
 }
 
 // Get sync stats (wrapper for sync stats)
-export function getSyncStats(event: any): { total: number; completed: number; pending: number } {
+export function getSyncStats(_event: any): { total: number; completed: number; pending: number } {
   return { total: 0, completed: 0, pending: 0 };
 }
 
 // Resolve sync conflict (alias for resolveAllConflicts)
-export function resolveSyncConflict(event: any): SyncConflict[] {
-  const body = typeof event === 'object' ? event.body : {};
+export function resolveSyncConflict(_event: any): SyncConflict[] {
   return resolveAllConflicts([], 'ours');
 }

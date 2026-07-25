@@ -2,7 +2,7 @@
  * Main benchmark runner
  */
 
-import { runBenchmarks } from './runner.mjs'
+import { runBenchmarks } from './runner.mjs';
 
 const config = {
   thresholds: {
@@ -19,26 +19,26 @@ const config = {
       regressionPct: 10,
     },
   },
-}
+};
 
 async function main() {
-  console.log('KnowledgeBook Performance Benchmarks\n')
-  const results = await runBenchmarks(config)
-  console.log('\n=== SUMMARY ===')
-  console.log(`Total regressions: ${results.regressions.length}`)
-  
+  console.log('KnowledgeBook Performance Benchmarks\n');
+  const results = await runBenchmarks(config);
+  console.log('\n=== SUMMARY ===');
+  console.log(`Total regressions: ${results.regressions.length}`);
+
   if (results.regressions.length > 0) {
-    console.log('\nRegressions detected:')
+    console.log('\nRegressions detected:');
     for (const reg of results.regressions) {
-      console.log(`  - ${reg}`)
+      console.log(`  - ${reg}`);
     }
-    process.exit(1)
+    process.exit(1);
   }
 
-  console.log('\nAll benchmarks passed!')
+  console.log('\nAll benchmarks passed!');
 }
 
-main().catch(err => {
-  console.error('Benchmark failed:', err)
-  process.exit(1)
-})
+main().catch((err) => {
+  console.error('Benchmark failed:', err);
+  process.exit(1);
+});

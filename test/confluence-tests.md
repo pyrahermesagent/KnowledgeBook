@@ -5,7 +5,9 @@ This directory contains test files for the Confluence XML import functionality.
 ## Test Files
 
 ### sample-page.xml
+
 A sample Confluence page export with:
+
 - Basic page structure (title, content, version)
 - Code macro
 - Panel (info/warning/note) macros
@@ -13,7 +15,9 @@ A sample Confluence page export with:
 - Expand macro
 
 ### sample-space-export.xml
+
 A sample full Confluence space export with:
+
 - Multiple pages
 - Page hierarchy
 - Common Confluence formatting patterns
@@ -46,14 +50,14 @@ console.log(JSON.stringify(result, null, 2));
 
 ## Confluence Macros Supported
 
-| Macro | Output |
-|-------|--------|
-| `code` | Fenced code block with language |
-| `panel` / `info` / `warning` / `note` | Blockquote with type indicator |
-| `expand` | HTML `<details><summary>` |
-| `table` | Markdown table |
-| `anchor` | HTML anchor tag |
-| `tabs` | Multiple details blocks |
+| Macro                                 | Output                          |
+| ------------------------------------- | ------------------------------- |
+| `code`                                | Fenced code block with language |
+| `panel` / `info` / `warning` / `note` | Blockquote with type indicator  |
+| `expand`                              | HTML `<details><summary>`       |
+| `table`                               | Markdown table                  |
+| `anchor`                              | HTML anchor tag                 |
+| `tabs`                                | Multiple details blocks         |
 
 ## Test Coverage
 

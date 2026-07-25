@@ -1,13 +1,13 @@
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { useDb, closeDb } from '#utils/db'
-import { setRuntimeConfig } from './nuxt-globals'
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { useDb, closeDb } from '#utils/db';
+import { setRuntimeConfig } from './nuxt-globals';
 
 // Wire the real useDb into the global the server modules call.
-;(globalThis as Record<string, unknown>).__useDbImpl = useDb
+(globalThis as Record<string, unknown>).__useDbImpl = useDb;
 
-const tempDirs: string[] = []
+const tempDirs: string[] = [];
 
 /**
  * Point the app at a fresh on-disk SQLite file and return the initialised
@@ -18,23 +18,23 @@ const tempDirs: string[] = []
  * not share rows through the module-level connection singleton.
  */
 export function createTestDb() {
-  closeDb()
+  closeDb();
 
-  const dir = mkdtempSync(join(tmpdir(), 'kb-test-'))
-  tempDirs.push(dir)
-  setRuntimeConfig({ databasePath: join(dir, 'test.db') })
+  const dir = mkdtempSync(join(tmpdir(), 'kb-test-'));
+  tempDirs.push(dir);
+  setRuntimeConfig({ databasePath: join(dir, 'test.db') });
 
-  return useDb()
+  return useDb();
 }
 
 /** Close the connection and remove every temp database created so far. */
 export function destroyTestDbs(): void {
-  closeDb()
+  closeDb();
 
   while (tempDirs.length) {
-    const dir = tempDirs.pop()!
+    const dir = tempDirs.pop()!;
     try {
-      rmSync(dir, { recursive: true, force: true })
+      rmSync(dir, { recursive: true, force: true });
     } catch {
       // Windows can hold the file briefly after close; a leaked temp dir is
       // not worth failing a test over.

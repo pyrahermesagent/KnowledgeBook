@@ -31,15 +31,15 @@ Supports 7+ source formats with auto-detection:
 
 ### Supported Formats
 
-| Format | Description | Example Use Case |
-|--------|-------------|------------------|
-| GitBook | GitBook.io published sites | Import published documentation |
+| Format     | Description                     | Example Use Case                    |
+| ---------- | ------------------------------- | ----------------------------------- |
+| GitBook    | GitBook.io published sites      | Import published documentation      |
 | Confluence | Atlassian Confluence XML export | Enterprise knowledge base migration |
-| HTML | Static HTML/CMS exports | WordPress, MediaWiki migration |
-| Markdown | Plain markdown files | Developer documentation |
-| CSV | Structured data export | Data-driven content imports |
-| PDF | PDF document parsing | Legacy document digitization |
-| EPUB | E-book format | Book-to-web migration |
+| HTML       | Static HTML/CMS exports         | WordPress, MediaWiki migration      |
+| Markdown   | Plain markdown files            | Developer documentation             |
+| CSV        | Structured data export          | Data-driven content imports         |
+| PDF        | PDF document parsing            | Legacy document digitization        |
+| EPUB       | E-book format                   | Book-to-web migration               |
 
 ### API Endpoints
 
@@ -54,6 +54,7 @@ POST /api/projects/import-html
 #### Request Examples
 
 **GitBook Import**
+
 ```json
 {
   "url": "https://example.gitbook.io/docs"
@@ -61,6 +62,7 @@ POST /api/projects/import-html
 ```
 
 **HTML Import**
+
 ```json
 {
   "content": "<html>...</html>",
@@ -69,6 +71,7 @@ POST /api/projects/import-html
 ```
 
 **Confluence Import**
+
 ```json
 {
   "xmlData": "<?xml version=\"1.0\"...>"
@@ -94,13 +97,13 @@ Supports 5+ output formats:
 
 ### Supported Formats
 
-| Format | Description | Use Case |
-|--------|-------------|----------|
-| PDF | Print-ready PDF documents | Documentation publishing |
-| Nuxt Static | Self-contained Nuxt site | Web hosting |
-| VitePress | VitePress-compatible site | Developer docs |
-| Plain HTML | Simple static pages | Any static host |
-| GitBook | GitBook-compatible export | Platform migration |
+| Format      | Description               | Use Case                 |
+| ----------- | ------------------------- | ------------------------ |
+| PDF         | Print-ready PDF documents | Documentation publishing |
+| Nuxt Static | Self-contained Nuxt site  | Web hosting              |
+| VitePress   | VitePress-compatible site | Developer docs           |
+| Plain HTML  | Simple static pages       | Any static host          |
+| GitBook     | GitBook-compatible export | Platform migration       |
 
 ### API Endpoints
 
@@ -111,6 +114,7 @@ POST /api/projects/[slug]/export-pdf
 ```
 
 **Request**
+
 ```json
 {
   "theme": "default",
@@ -121,6 +125,7 @@ POST /api/projects/[slug]/export-pdf
 ```
 
 **Response**
+
 ```json
 {
   "success": true,
@@ -153,8 +158,8 @@ const result = await exportToPdf(project, sections, {
 ### API Endpoints
 
 ```typescript
-GET /api/previews/[slug]
-POST /api/previews/[slug]/refresh
+GET / api / previews / [slug];
+POST / api / previews / [slug] / refresh;
 ```
 
 ## Sync System
@@ -168,8 +173,8 @@ POST /api/previews/[slug]/refresh
 ### API Endpoints
 
 ```typescript
-POST /api/sync/resolve
-GET /api/sync/history/[contentId]
+POST / api / sync / resolve;
+GET / api / sync / history / [contentId];
 ```
 
 ## Integration Testing

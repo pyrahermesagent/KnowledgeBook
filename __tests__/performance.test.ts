@@ -1,10 +1,28 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { encrypt, decrypt, computeContentHash, verifyContentHash, getEncryptionKey, clearKeyCache, getKeyCacheStats } from '#server/services/encryption';
-import { decryptPageContent, encryptPageContent } from '#server/services/pageEncryption';
-import { getProjectEncryptionKey, ensureProjectEncryptionKey } from '#server/services/keyManagement';
-import { decryptPagesInBatch, decryptPageLazy, decryptSelectedPages } from '#server/services/batchDecrypt';
-import { encryptAndUpload, getEncryptionMetadata, clearEncryptionMetadataCache, getEncryptionMetadataStats } from '#server/utils/storage-encryption';
-import { getMetrics, resetMetrics, recordDecryptionDuration, getDecryptionMetrics } from '#server/middleware/metrics';
+import {
+  encrypt,
+  computeContentHash,
+  verifyContentHash,
+  getEncryptionKey,
+  clearKeyCache,
+  getKeyCacheStats,
+} from '#server/services/encryption';
+import {
+  getProjectEncryptionKey,
+  ensureProjectEncryptionKey,
+} from '#server/services/keyManagement';
+import { decryptPagesInBatch, decryptPageLazy } from '#server/services/batchDecrypt';
+import {
+  encryptAndUpload,
+  clearEncryptionMetadataCache,
+  getEncryptionMetadataStats,
+} from '#server/utils/storage-encryption';
+import {
+  getMetrics,
+  resetMetrics,
+  recordDecryptionDuration,
+  getDecryptionMetrics,
+} from '#server/middleware/metrics';
 
 /**
  * Performance Test Suite for KnowledgeBook Encryption Features
@@ -55,31 +73,31 @@ describe('Encryption Performance Tests', () => {
 
     it('should cache encryption keys', () => {
       // First call should fetch from database
-      const key1 = getEncryptionKey(projectId);
+      getEncryptionKey(projectId);
       const stats1 = getKeyCacheStats();
       expect(stats1.size).toBeGreaterThanOrEqual(0);
 
       // Second call should use cache
-      const key2 = getEncryptionKey(projectId);
+      getEncryptionKey(projectId);
       const stats2 = getKeyCacheStats();
-      
+
       // Cache should now contain the key
       expect(stats2.size).toBeGreaterThanOrEqual(1);
     });
 
     it('should have low cache latency', () => {
       const projectId = 998;
-      
+
       // Prime the cache
       getEncryptionKey(projectId);
-      
+
       // Measure cache access time
       const start = performance.now();
       for (let i = 0; i < 100; i++) {
         getEncryptionKey(projectId);
       }
       const duration = performance.now() - start;
-      
+
       // Cache access should be fast (< 10ms for 100 operations)
       expect(duration).toBeLessThan(10);
     });
@@ -124,7 +142,7 @@ describe('Encryption Performance Tests', () => {
     it('should track request metrics', () => {
       // This would be tested in an actual request context
       const m = getMetrics();
-      
+
       // Metrics should be initialized
       expect(m.encryptedRequests).toBeGreaterThanOrEqual(0);
       expect(m.cacheHitRate).toBeGreaterThanOrEqual(0);
@@ -136,7 +154,7 @@ describe('Encryption Performance Tests', () => {
     it('should compute content hash efficiently', () => {
       const content = 'test content for hashing';
       const hash1 = computeContentHash(content);
-      
+
       // Hash should be consistent
       const hash2 = computeContentHash(content);
       expect(hash1).toBe(hash2);
@@ -146,7 +164,7 @@ describe('Encryption Performance Tests', () => {
     it('should verify content integrity', () => {
       const content = 'integrity test';
       const hash = computeContentHash(content);
-      
+
       expect(verifyContentHash(content, hash)).toBe(true);
       expect(verifyContentHash('modified content', hash)).toBe(false);
     });
@@ -157,7 +175,7 @@ describe('Encryption Performance Tests', () => {
       const projectId = 1000;
       const key1 = getProjectEncryptionKey(projectId);
       const key2 = getProjectEncryptionKey(projectId);
-      
+
       // Keys should be deterministic
       expect(key1?.equals(key2!)).toBe(true);
     });
@@ -165,7 +183,7 @@ describe('Encryption Performance Tests', () => {
     it('should ensure encryption key exists', () => {
       const projectId = 1001;
       const key = ensureProjectEncryptionKey(projectId);
-      
+
       expect(key).toBeDefined();
       expect(key).toBeInstanceOf(Buffer);
       expect(key.length).toBe(32); // 256 bits
@@ -176,11 +194,11 @@ describe('Encryption Performance Tests', () => {
     it('should encrypt content before upload', async () => {
       const testContent = 'test file content for encryption upload';
       const buffer = Buffer.from(testContent);
-      
+
       // This would test the actual upload with encryption
       // In test environment, S3 may not be configured
       const key = await encryptAndUpload('test-file.txt', buffer, 'text/plain', 100);
-      
+
       expect(key).toBeDefined();
     });
 
@@ -194,14 +212,14 @@ describe('Encryption Performance Tests', () => {
     it('should meet page load target (< 200ms)', async () => {
       // Simulate a typical page load with encryption
       const start = performance.now();
-      
+
       // Simulate key lookup, content fetch, decryption
       const projectId = 1002;
-      const key = getEncryptionKey(projectId);
-      
+      getEncryptionKey(projectId);
+
       // Simulate decryption
       const duration = performance.now() - start;
-      
+
       // Total should be under 200ms
       expect(duration).toBeLessThan(200);
     });
@@ -209,21 +227,19 @@ describe('Encryption Performance Tests', () => {
     it('should meet encryption overhead target (< 50ms)', () => {
       const content = 'test content for encryption';
       const key = generateEncryptionKey();
-      
+
       const start = performance.now();
-      const encrypted = encrypt(content, key);
+      encrypt(content, key);
       const duration = performance.now() - start;
-      
+
       expect(duration).toBeLessThan(50);
     });
 
     it('should support concurrent requests', async () => {
       // Simulate concurrent requests
       const requestCount = 100;
-      const requests = Array.from({ length: requestCount }, (_, i) => 
-        getEncryptionKey(1000 + i)
-      );
-      
+      const requests = Array.from({ length: requestCount }, (_, i) => getEncryptionKey(1000 + i));
+
       // All should complete without error
       await Promise.all(requests);
     });
@@ -231,7 +247,7 @@ describe('Encryption Performance Tests', () => {
 });
 
 // Utility functions for testing
-function generateEncryptionKey (): Buffer {
+function generateEncryptionKey(): Buffer {
   const crypto = require('node:crypto');
   return crypto.randomBytes(32);
 }

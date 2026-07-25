@@ -31,6 +31,7 @@ The Multi-Modal Content Pipeline is a unified system for handling content import
 ## Supported Formats
 
 ### Import Formats (7+)
+
 - **GitBook** - Published GitBook sites via llms.txt/sitemap.xml
 - **Markdown** - .md, .markdown, .mkd files
 - **HTML** - .html, .htm files and CMS exports
@@ -41,6 +42,7 @@ The Multi-Modal Content Pipeline is a unified system for handling content import
 - **EPUB** - EPUB e-book imports
 
 ### Export Formats (5+)
+
 - **Web** - Static HTML site
 - **PDF** - Print-ready PDF documents
 - **EPUB** - E-book format for e-readers
@@ -157,11 +159,13 @@ POST /api/sync/content
 ### Import Pipeline (`server/utils/import-pipeline.ts`)
 
 The import pipeline handles all import operations with the following features:
+
 - **Auto-detection**: Automatically detects format based on content, URL, or filename
 - **Format validation**: Validates supported formats before processing
 - **Error handling**: Graceful error reporting with detailed messages
 
 Key functions:
+
 - `detectFormat(content, url, filename)` - Determines format
 - `importContent(options)` - Main import function
 - `validateImportRequest(options)` - Validates import request
@@ -169,11 +173,13 @@ Key functions:
 ### Export Pipeline (`server/utils/export-pipeline.ts`)
 
 The export pipeline handles all export operations with the following features:
+
 - **Status tracking**: Tracks export progress and status
 - **Format-specific handlers**: Specialized handlers for each format
 - **History management**: Maintains export history
 
 Key functions:
+
 - `createExportStatus(projectSlug, format)` - Creates export record
 - `exportContent(options)` - Main export function
 - `getExportHistory(limit)` - Gets export history
@@ -182,11 +188,13 @@ Key functions:
 ### Preview Pipeline (`server/utils/preview-pipeline.ts`)
 
 The preview pipeline provides real-time content preview with the following features:
+
 - **Theme switching**: Switch between multiple themes
 - **Format support**: Preview in web, PDF, or EPUB format
 - **Live update**: Supports live preview with change detection
 
 Key functions:
+
 - `previewContent(options)` - Main preview function
 - `getAvailableThemes()` - Lists available themes
 - `getTheme(name)` - Gets specific theme
@@ -195,11 +203,13 @@ Key functions:
 ### Content Sync Pipeline (`server/utils/content-sync.ts`)
 
 The content sync pipeline handles bidirectional sync with the following features:
+
 - **Multiple sync targets**: GitBook, Confluence, Notion, generic CMS
 - **Conflict resolution**: Multiple strategies for resolving conflicts
 - **History tracking**: Sync operation history
 
 Key functions:
+
 - `syncContent(options)` - Main sync function
 - `resolveConflict(conflict, strategy)` - Resolves individual conflicts
 - `detectConflicts(localPages, remotePages)` - Detects sync conflicts
@@ -209,16 +219,16 @@ Key functions:
 
 The preview system supports multiple themes:
 
-| Theme | Name | Description |
-|-------|------|-------------|
-| default | Default | Standard light theme |
-| light | Light | Clean light theme |
-| dark | Dark | Dark mode theme |
-| minimal | Minimal | Minimal content focus |
-| academic | Academic | Scholarly formatting |
-| professional | Professional | Corporate style |
-| read | Read | Reading-optimized |
-| ink | Ink | Print-like appearance |
+| Theme        | Name         | Description           |
+| ------------ | ------------ | --------------------- |
+| default      | Default      | Standard light theme  |
+| light        | Light        | Clean light theme     |
+| dark         | Dark         | Dark mode theme       |
+| minimal      | Minimal      | Minimal content focus |
+| academic     | Academic     | Scholarly formatting  |
+| professional | Professional | Corporate style       |
+| read         | Read         | Reading-optimized     |
+| ink          | Ink          | Print-like appearance |
 
 ## Error Handling
 
@@ -233,6 +243,7 @@ All API endpoints return consistent error responses:
 ```
 
 Status codes:
+
 - `400` - Bad request (validation error)
 - `401` - Unauthorized (not logged in)
 - `403` - Forbidden (no access to resource)
@@ -246,6 +257,7 @@ Status codes:
 **Endpoint**: `POST /api/projects/importUnified`
 
 **Request Body**:
+
 - `content` (string, optional): Content to import
 - `url` (string, optional): URL to import from
 - `format` (string, optional): Format hint ('auto', 'markdown', 'html', etc.)
@@ -253,6 +265,7 @@ Status codes:
 - `projectSlug` (string, optional): Slug for new project
 
 **Response**:
+
 - `success` (boolean)
 - `slug` (string): Project slug
 - `name` (string): Project name
@@ -265,6 +278,7 @@ Status codes:
 **Endpoint**: `POST /api/exports/exportUnified`
 
 **Request Body**:
+
 - `projectSlug` (string): Project to export
 - `format` (string): Export format
 - `theme` (string, optional): Theme name
@@ -273,6 +287,7 @@ Status codes:
 - `includeToc` (boolean, optional): Include table of contents
 
 **Response**:
+
 - `success` (boolean)
 - `exportId` (string): Export job ID
 - `format` (string)
@@ -286,11 +301,13 @@ Status codes:
 **Endpoint**: `POST /api/previews/previewUnified`
 
 **Request Body**:
+
 - `projectSlug` (string): Project to preview
 - `format` (string, optional): 'web', 'pdf', 'epub'
 - `theme` (string, optional): Theme name
 
 **Response**:
+
 - `success` (boolean)
 - `format` (string)
 - `previewContent` (string, optional): HTML content
@@ -303,6 +320,7 @@ Status codes:
 **Endpoint**: `POST /api/sync/content`
 
 **Request Body**:
+
 - `projectSlug` (string): Project to sync
 - `remoteUrl` (string): Remote CMS URL
 - `remoteToken` (string): Authentication token
@@ -310,6 +328,7 @@ Status codes:
 - `conflictStrategy` (string): 'ours', 'theirs', 'manual', 'auto-merge'
 
 **Response**:
+
 - `success` (boolean)
 - `syncedPages` (number)
 - `syncedSections` (number)

@@ -1,10 +1,6 @@
 <template>
   <div class="theme-toggle">
-    <button
-      class="btn btn-ghost"
-      :aria-label="`Theme: ${activeTheme.name}`"
-      @click="toggleTheme"
-    >
+    <button class="btn btn-ghost" :aria-label="`Theme: ${activeTheme.name}`" @click="toggleTheme">
       <span class="icon">{{ themeIcon }}</span>
       <span class="label">{{ activeTheme.name }}</span>
     </button>
@@ -15,7 +11,7 @@
 import { computed } from 'vue';
 import { useThemeManager } from '~/composables/useThemeManager';
 
-const { activeTheme, toggleTheme, themes } = useThemeManager();
+const { activeTheme, toggleTheme } = useThemeManager();
 
 // Get theme icon based on current theme
 const themeIcon = computed(() => {
@@ -25,17 +21,8 @@ const themeIcon = computed(() => {
   return '☀️';
 });
 
-// Get theme name label (with system indicator for auto)
-const themeLabel = computed(() => {
-  const type = activeTheme.value.type;
-  if (type === 'auto') {
-    return 'Auto (System)';
-  }
-  return activeTheme.value.name;
-});
-
 // Define emits for parent components
-const emit = defineEmits<{
+defineEmits<{
   (e: 'theme-change', themeId: string): void;
 }>();
 </script>

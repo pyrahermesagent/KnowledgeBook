@@ -49,14 +49,15 @@ KnowledgeBook DAO
 
 **$KB Token - Governance & Utility**
 
-| Feature | Description |
-|---------|-------------|
-| Total Supply | 100,000,000 KB |
-| Distribution | 50% Community, 20% Team (4yr vest), 15% Treasury, 10% Investors, 5% Airdrop |
-| Voting Power | 1 token = 1 vote |
-| Locking Bonus | 12-month lock = 2x voting power |
+| Feature       | Description                                                                 |
+| ------------- | --------------------------------------------------------------------------- |
+| Total Supply  | 100,000,000 KB                                                              |
+| Distribution  | 50% Community, 20% Team (4yr vest), 15% Treasury, 10% Investors, 5% Airdrop |
+| Voting Power  | 1 token = 1 vote                                                            |
+| Locking Bonus | 12-month lock = 2x voting power                                             |
 
 **NFT - Content Creator Staking**
+
 - NFT staked by project creators
 - Staking increases project visibility
 - Rewards for quality content
@@ -64,17 +65,20 @@ KnowledgeBook DAO
 ### 2. Proposal Types
 
 #### A. Community Proposals
+
 - **Feature Requests** - Add new features to platform
 - **Content Moderation** - Approve/reject content flags
 - **Treasury Spending** - Allocate funds to initiatives
 - **Policy Changes** - Modify platform rules
 
 #### B. Project-Specific Proposals
+
 - **Project Curation** - Curate projects to featured section
 - **Content Approval** - Approve major content changes
 - **Moderator Assignment** - Appoint project moderators
 
 #### C. Emergency Proposals
+
 - **Security Fixes** - Urgent security patches
 - **Hard Forks** - Protocol upgrades
 - **Asset Freezes** - Temporary measures
@@ -130,11 +134,13 @@ CREATE TABLE proposal_comments (
 ### 2. Treasury Management
 
 **Treasury Addresses by Chain:**
+
 - Ethereum: `0x...`
 - Polygon: `0x...`
 - Arbitrum: `0x...`
 
 **Treasury Spending Rules:**
+
 - **Small Spending (< 10 ETH equivalent):** 24-hour vote, simple majority
 - **Medium Spending (10-100 ETH):** 7-day vote, 60% supermajority
 - **Large Spending (> 100 ETH):** 14-day vote, 75% supermajority
@@ -143,11 +149,13 @@ CREATE TABLE proposal_comments (
 ### 3. Multi-Signature Wallet
 
 **Core Governance Multi-Sig:**
+
 - Threshold: 3-of-5
 - Members: Core Team (2), DAO Representatives (3)
 - Purpose: Emergency actions, large treasury decisions
 
 **Creator Multi-Sig:**
+
 - Threshold: 2-of-3
 - Members: Project owner + 2 community moderators
 - Purpose: Project-level decisions
@@ -157,33 +165,42 @@ CREATE TABLE proposal_comments (
 ## Community Roles & Responsibilities
 
 ### Content Curator (NFT-based)
+
 **Requirements:**
+
 - Hold $KB governance token (100+ tokens)
 - Stake NFT (content creator or curator)
 
 **Responsibilities:**
+
 - Review flagged content
 - Approve featured projects
 - Suggest content improvements
 
 **Rewards:**
+
 - $KB token rewards for quality curation
 - NFT reputation points
 - Governance voting bonus
 
 ### Project Moderator (Community Appointed)
+
 **Appointment Process:**
+
 1. Community proposes moderator candidate
 2. Proposal vote (7 days)
 3. If passed, candidate appointed
 
 **Responsibilities:**
+
 - Handle content disputes
 - Enforce community guidelines
 - Approve/deploy project changes
 
 ### Technical Committee (Core Team)
+
 **Responsibilities:**
+
 - Platform security
 - Protocol upgrades
 - Emergency response
@@ -207,14 +224,15 @@ Where:
 
 ### Quorum Requirements
 
-| Proposal Type | Quorum | Majority |
-|---------------|--------|----------|
-| Community | 5% of total votes | 50% |
-| Project | 10% of project voters | 60% |
-| Emergency | 3% of total votes | 66% |
-| Policy Change | 10% of total votes | 75% |
+| Proposal Type | Quorum                | Majority |
+| ------------- | --------------------- | -------- |
+| Community     | 5% of total votes     | 50%      |
+| Project       | 10% of project voters | 60%      |
+| Emergency     | 3% of total votes     | 66%      |
+| Policy Change | 10% of total votes    | 75%      |
 
 ### Quorum Bypass for Small Projects
+
 - Projects with < 100 followers: Simple majority (50%)
 - Projects with 100-1000 followers: 60% majority
 - Projects with > 1000 followers: Standard quorum applies
@@ -225,42 +243,46 @@ Where:
 
 ### Initial Treasury (15% of supply = 15M $KB)
 
-| Use Case | Allocation | Duration |
-|----------|------------|----------|
-| Community Grants | 5M $KB | 2 years |
-| Developer Bounties | 3M $KB | Ongoing |
-| Marketing | 2M $KB | 1 year |
-| Treasury Reserve | 5M $KB | Perpetual |
+| Use Case           | Allocation | Duration  |
+| ------------------ | ---------- | --------- |
+| Community Grants   | 5M $KB     | 2 years   |
+| Developer Bounties | 3M $KB     | Ongoing   |
+| Marketing          | 2M $KB     | 1 year    |
+| Treasury Reserve   | 5M $KB     | Perpetual |
 
 ### Revenue Sources
 
-| Source | Allocation |
-|--------|------------|
-| Platform Revenue (20%) | Treasury |
-| Token Buybacks (10%) | Treasury |
-| NFT Sales (15%) | Treasury |
-| Enterprise Contracts | Treasury |
+| Source                 | Allocation |
+| ---------------------- | ---------- |
+| Platform Revenue (20%) | Treasury   |
+| Token Buybacks (10%)   | Treasury   |
+| NFT Sales (15%)        | Treasury   |
+| Enterprise Contracts   | Treasury   |
 
 ---
 
 ## Governance Roadmap
 
 ### Phase 1: Core Team Governance (Months 1-3)
+
 - Centralized decision-making
 - Establish DAO infrastructure
 - Community education
 
 ### Phase 2: Hybrid Governance (Months 4-6)
+
 - Core team + DAO co-governance
 - Voting power increases monthly
 - Community proposals accepted
 
 ### Phase 3: Community Governance (Months 7-12)
+
 - DAO majority control
 - Core team advisory role
 - Full autonomy
 
 ### Phase 4: Decentralized DAO (12+ months)
+
 - All governance on-chain
 - No centralized control
 - AMM governance (optional)
@@ -270,16 +292,19 @@ Where:
 ## Integration with Existing Web3 Features
 
 ### Token Gating + DAO
+
 - Token-gated projects with DAO oversight
 - Community can propose access changes
 - Treasury funds for token-gated content
 
 ### NFT Ownership + DAO
+
 - NFT project owners can propose governance changes
 - DAO approves major NFT contract changes
 - Community NFT staking for governance
 
 ### Monetization + DAO
+
 - DAO votes on tipping mechanics
 - Treasury funds creator bounties
 - Community sets fee structures
@@ -289,16 +314,19 @@ Where:
 ## Security & Anti-Abuse Measures
 
 ### 1. Sybil Resistance
+
 - Token staking required for voting
 - One address = one vote (no ganging)
 - Re-verification every 90 days
 
 ### 2. Spam Prevention
+
 - Minimum proposal deposit (0.1 $KB)
 - Vote cooldown (24 hours between votes)
 - Proposal voting period limit (14 days)
 
 ### 3. Exit Mechanisms
+
 - **Token Sell** - Exit with tokens
 - **NFT Burn** - Exit with NFT burned
 - **Project Fork** - Fork project to compete
@@ -315,6 +343,7 @@ KnowledgeBook's DAO governance framework enables:
 4. **Sustainability** - Treasury funds platform growth
 
 **Next Steps:**
+
 1. Deploy DAO smart contracts (Ethereum/Polygon)
 2. Launch $KB token with governance features
 3. Create DAO dashboard for proposals
@@ -322,4 +351,4 @@ KnowledgeBook's DAO governance framework enables:
 
 ---
 
-*Framework generated by Discovery Task 2*
+_Framework generated by Discovery Task 2_

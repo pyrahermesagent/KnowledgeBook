@@ -55,11 +55,21 @@ This document defines the theme schema and API for KnowledgeBook's theming engin
     "TypographyConfig": {
       "type": "object",
       "properties": {
-        "fontFamily": { "type": "string", "default": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif" },
-        "mono": { "type": "string", "default": "ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, monospace" },
+        "fontFamily": {
+          "type": "string",
+          "default": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif"
+        },
+        "mono": {
+          "type": "string",
+          "default": "ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, monospace"
+        },
         "fontSize": { "type": "number", "minimum": 12, "maximum": 24, "default": 16 },
         "lineHeight": { "type": "number", "minimum": 1.2, "maximum": 2.0, "default": 1.6 },
-        "headingScale": { "type": "array", "items": { "type": "number" }, "default": [2.0, 1.45, 1.15] }
+        "headingScale": {
+          "type": "array",
+          "items": { "type": "number" },
+          "default": [2.0, 1.45, 1.15]
+        }
       },
       "required": ["fontFamily"]
     },
@@ -67,7 +77,11 @@ This document defines the theme schema and API for KnowledgeBook's theming engin
       "type": "object",
       "properties": {
         "sidebarWidth": { "type": "number", "minimum": 200, "maximum": 500, "default": 280 },
-        "sidebarPosition": { "type": "string", "enum": ["left", "right", "top"], "default": "left" },
+        "sidebarPosition": {
+          "type": "string",
+          "enum": ["left", "right", "top"],
+          "default": "left"
+        },
         "headerHeight": { "type": "number", "minimum": 40, "maximum": 100, "default": 60 },
         "footerVisible": { "type": "boolean", "default": true },
         "stickyHeader": { "type": "boolean", "default": true }
@@ -77,7 +91,11 @@ This document defines the theme schema and API for KnowledgeBook's theming engin
       "type": "object",
       "properties": {
         "unit": { "type": "number", "minimum": 4, "maximum": 32, "default": 8 },
-        "scale": { "type": "string", "enum": ["compact", "normal", "spacious"], "default": "normal" }
+        "scale": {
+          "type": "string",
+          "enum": ["compact", "normal", "spacious"],
+          "default": "normal"
+        }
       },
       "required": ["unit"]
     },
@@ -112,6 +130,7 @@ GET /api/themes
 ```
 
 Response:
+
 ```json
 {
   "themes": [
@@ -171,6 +190,7 @@ Response includes the effective theme (project-specific or inherited system defa
 ## Database Schema
 
 ### themes table
+
 ```sql
 CREATE TABLE themes (
   id          TEXT PRIMARY KEY,
@@ -186,6 +206,7 @@ CREATE TABLE themes (
 ```
 
 ### project_themes table
+
 ```sql
 CREATE TABLE project_themes (
   project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -223,18 +244,21 @@ Themes are converted to CSS variables at runtime:
 ## Example Themes
 
 ### Minimal Light
+
 - Primary: #3b82f6
 - Background: #ffffff
 - Border: #e5e7eb
 - Text: #111827
 
 ### Midnight Dark
+
 - Primary: #8b5cf6
 - Background: #0f172a
 - Border: #1e293b
 - Text: #f1f5f9
 
 ### Ocean Breeze
+
 - Primary: #06b6d4
 - Background: #ecfeff
 - Border: #cffafe

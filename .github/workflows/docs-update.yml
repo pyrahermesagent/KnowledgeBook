@@ -39,11 +39,11 @@ jobs:
         run: |
           # Get the list of changed files between HEAD~1 and HEAD
           CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
-          
+
           # Check if any docs or README files changed
           DOCS_CHANGED=false
           README_CHANGED=false
-          
+
           for file in $CHANGED_FILES; do
             if [[ "$file" == docs/* ]] || [[ "$file" == docs ]]; then
               DOCS_CHANGED=true
@@ -52,10 +52,10 @@ jobs:
               README_CHANGED=true
             fi
           done
-          
+
           echo "docs_changed=$DOCS_CHANGED" >> $GITHUB_OUTPUT
           echo "readme_changed=$README_CHANGED" >> $GITHUB_OUTPUT
-          
+
           echo "Docs changed: $DOCS_CHANGED"
           echo "Readme changed: $README_CHANGED"
 
@@ -108,10 +108,10 @@ jobs:
         run: |
           echo "Documentation changes detected in docs/"
           echo "Triggering platform documentation update..."
-          
+
           # This job would integrate with your documentation platform API
           # For now, it serves as a placeholder for future implementation
-          
+
           # Possible integrations:
           # - GitBook API: Sync markdown files
           # - Confluence API: Update pages

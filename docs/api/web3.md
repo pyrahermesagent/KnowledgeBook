@@ -9,6 +9,7 @@ KnowledgeBook supports Web3 authentication and NFT-based access control for docu
 Authenticate using cryptocurrency wallets (MetaMask, WalletConnect, etc.) instead of Google OAuth.
 
 **Supported Networks:**
+
 - Ethereum Mainnet
 - Polygon
 - Arbitrum
@@ -38,7 +39,7 @@ const message = 'Login to KnowledgeBook';
 // Request signature from wallet
 const signature = await window.ethereum.request({
   method: 'personal_sign',
-  params: [address, message]
+  params: [address, message],
 });
 
 // Send to KnowledgeBook
@@ -48,8 +49,8 @@ const response = await fetch('/api/auth/wallet/login', {
   body: JSON.stringify({
     address: address,
     message: message,
-    signature: signature
-  })
+    signature: signature,
+  }),
 });
 
 const { token, user } = await response.json();
@@ -145,9 +146,9 @@ contract NftOwnership {
         address ownerAddress;
         uint256 grantedAt;
     }
-    
+
     mapping(uint256 => ProjectNft) public projectNfts;
-    
+
     function setProjectNft(
         uint256 projectId,
         address nftContract,
@@ -164,18 +165,18 @@ contract NftOwnership {
             grantedAt: block.timestamp
         });
     }
-    
+
     function getProjectNft(uint256 projectId) public view returns (ProjectNft memory) {
         return projectNfts[projectId];
     }
-    
+
     function validateOwnership(
         uint256 projectId,
         address wallet
     ) public view returns (bool) {
         ProjectNft memory nft = projectNfts[projectId];
         if (nft.projectId == 0) return false;
-        
+
         IERC721 nftContract = IERC721(nft.nftContract);
         return nftContract.ownerOf(nft.tokenId) == wallet;
     }
@@ -191,6 +192,7 @@ contract NftOwnership {
 Authenticate with wallet signature.
 
 **Request:**
+
 ```json
 {
   "address": "0x...",
@@ -200,6 +202,7 @@ Authenticate with wallet signature.
 ```
 
 **Response:**
+
 ```json
 {
   "token": "session_token",
@@ -218,6 +221,7 @@ Authenticate with wallet signature.
 Verify wallet owns specific NFT.
 
 **Response:**
+
 ```json
 {
   "owned": true,
@@ -234,6 +238,7 @@ Verify wallet owns specific NFT.
 Check if wallet has access to token-gated project.
 
 **Response:**
+
 ```json
 {
   "hasAccess": true,
@@ -276,30 +281,31 @@ function WalletLogin() {
     }
 
     const message = `Login to KnowledgeBook`;
-    
-    signMessage({ message }, {
-      onSuccess: async (signature) => {
-        const response = await fetch('/api/auth/wallet/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            address,
-            message,
-            signature
-          })
-        });
-        
-        const { token } = await response.json();
-        // Store token
-        localStorage.setItem('token', token);
+
+    signMessage(
+      { message },
+      {
+        onSuccess: async (signature) => {
+          const response = await fetch('/api/auth/wallet/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              address,
+              message,
+              signature,
+            }),
+          });
+
+          const { token } = await response.json();
+          // Store token
+          localStorage.setItem('token', token);
+        },
       }
-    });
+    );
   };
 
   return (
-    <button onClick={handleLogin}>
-      {isConnected ? 'Login with Wallet' : 'Connect Wallet'}
-    </button>
+    <button onClick={handleLogin}>{isConnected ? 'Login with Wallet' : 'Connect Wallet'}</button>
   );
 }
 ```
@@ -314,7 +320,7 @@ class KnowledgeBookWeb3:
     def __init__(self, base_url):
         self.base_url = base_url
         self.w3 = Web3()
-    
+
     def login(self, address, message, signature):
         """Authenticate with wallet signature"""
         response = requests.post(
@@ -326,14 +332,14 @@ class KnowledgeBookWeb3:
             }
         )
         return response.json()
-    
+
     def verify_nft_ownership(self, contract, token_id, wallet):
         """Verify wallet owns NFT"""
         response = requests.get(
             f"{self.base_url}/api/nft/verify/{contract}/{token_id}/{wallet}"
         )
         return response.json()
-    
+
     def check_token_access(self, project_slug, wallet):
         """Check if wallet has access to token-gated project"""
         response = requests.get(
@@ -378,6 +384,7 @@ print(result)
 ## Support
 
 For Web3 integration questions:
+
 - Check the [MCP documentation](./mcp.md) for AI agent integration
 - Review [REST API docs](./rest.md) for programmatic access
 - Join the [developer community](https://forum.knowledgebook.app)

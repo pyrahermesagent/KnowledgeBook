@@ -2,30 +2,30 @@
 // Handles importing Atlassian Confluence spaces via XML export
 
 import { defineEventHandler, readBody } from 'h3';
-import { parseConfluenceExportDirectory, handleConfluenceImport, ConfluenceImportError, validateConfluenceStructure } from '~/server/utils/confluence';
-import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, readdirSync, statSync } from 'fs';
-import { join, dirname } from 'path';
+import { parseConfluenceExportDirectory, handleConfluenceImport } from '~/server/utils/confluence';
+import { existsSync, readFileSync, rmSync, readdirSync, statSync } from 'fs';
+import { join } from 'path';
 import { tmpdir } from 'os';
 
 // Validate Confluence export structure
 function validateConfluenceStructureExternal(data: any): boolean {
   if (!data) return false;
-  
+
   // Check for pages array
   if (data.pages) {
     return Array.isArray(data.pages);
   }
-  
+
   // Check for single page
   if (data.page) {
     return !!data.page.title;
   }
-  
+
   // Check for space content
   if (data.space && data.space.content) {
     return true;
   }
-  
+
   return false;
 }
 
@@ -44,21 +44,21 @@ function parseConfluenceExportFile(filePath: string): any {
 function parseConfluenceExportDirectory(exportPath: string): any {
   const pages: any[] = [];
   let root: any = null;
-  
+
   // Find all XML files in directory
   const xmlFiles = getXmlFiles(exportPath);
-  
+
   for (const xmlFile of xmlFiles) {
     const xmlPath = join(exportPath, xmlFile);
     try {
       const content = readFileSync(xmlPath, 'utf8');
       const parsed = parseConfluenceXmlContent(content);
-      
+
       // Add parsed pages
       if (parsed.pages) {
         pages.push(...parsed.pages);
       }
-      
+
       // Try to find root page (usually has 'root' in path or name)
       if (xmlFile.toLowerCase().includes('root')) {
         const rootXml = readFileSync(xmlPath, 'utf8');
@@ -69,14 +69,14 @@ function parseConfluenceExportDirectory(exportPath: string): any {
       console.warn(`Failed to parse ${xmlFile}: ${(error as Error).message}`);
     }
   }
-  
+
   // If no explicit root found, use first page
   if (!root && pages.length > 0) {
     root = {
       pages: [pages[0]],
     };
   }
-  
+
   return {
     pages,
     root,
@@ -102,7 +102,7 @@ function getXmlFiles(directoryPath: string): string[] {
       }
     }
   }
-  
+
   scan(directoryPath);
   return result;
 }
@@ -110,10 +110,10 @@ function getXmlFiles(directoryPath: string): string[] {
 // Import Confluence XML
 export const importConfluence = defineEventHandler(async (event) => {
   const body = await readBody(event);
-  
+
   // Handle different import methods
   let confluenceData: any;
-  
+
   if (body.xmlData) {
     // Direct XML import
     try {
@@ -141,7 +141,7 @@ export const importConfluence = defineEventHandler(async (event) => {
   } else if (body.uploadId) {
     // Import from uploaded file (from temporary storage)
     const uploadPath = join(tmpdir(), `confluence-import-${body.uploadId}`);
-    
+
     try {
       confluenceData = parseConfluenceExportDirectory(uploadPath);
       rmSync(uploadPath, { recursive: true, force: true });
@@ -178,7 +178,7 @@ export const importConfluence = defineEventHandler(async (event) => {
       error: 'Invalid request. Provide xmlData, directoryPath, uploadId, or file.',
     };
   }
-  
+
   // Validate structure
   if (!validateConfluenceStructureExternal(confluenceData)) {
     setResponseStatus(event, 400);
@@ -188,11 +188,11 @@ export const importConfluence = defineEventHandler(async (event) => {
       details: 'Expected pages, page, or space content',
     };
   }
-  
+
   try {
     // Import pages
     const result = await handleConfluenceImport(event, confluenceData);
-    
+
     return {
       success: true,
       ...result,
@@ -210,7 +210,7 @@ export const importConfluence = defineEventHandler(async (event) => {
 // Bulk import handler for directory archives
 export const bulkImportConfluence = defineEventHandler(async (event) => {
   const body = await readBody(event);
-  
+
   if (!body.directoryPath && !body.uploadId) {
     setResponseStatus(event, 400);
     return {
@@ -218,12 +218,12 @@ export const bulkImportConfluence = defineEventHandler(async (event) => {
       error: 'Invalid request. Provide directoryPath or uploadId.',
     };
   }
-  
+
   let confluenceData: any;
-  const uploadPath = body.uploadId 
+  const uploadPath = body.uploadId
     ? join(tmpdir(), `confluence-import-${body.uploadId}`)
     : body.directoryPath;
-  
+
   try {
     confluenceData = parseConfluenceExportDirectory(uploadPath);
   } catch (error) {
@@ -234,7 +234,7 @@ export const bulkImportConfluence = defineEventHandler(async (event) => {
       details: (error as Error).message,
     };
   }
-  
+
   if (!validateConfluenceStructureExternal(confluenceData)) {
     setResponseStatus(event, 400);
     return {
@@ -242,15 +242,15 @@ export const bulkImportConfluence = defineEventHandler(async (event) => {
       error: 'Invalid Confluence export format',
     };
   }
-  
+
   try {
     const result = await handleConfluenceImport(event, confluenceData);
-    
+
     // Clean up upload if from temporary storage
     if (body.uploadId && existsSync(uploadPath)) {
       rmSync(uploadPath, { recursive: true, force: true });
     }
-    
+
     return {
       success: true,
       ...result,
@@ -281,7 +281,7 @@ export default {
   POST: defineEventHandler(async (event) => {
     // Route to appropriate handler based on content
     const body = await readBody(event);
-    
+
     if (body.bulk) {
       return bulkImportConfluence(event);
     }

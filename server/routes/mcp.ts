@@ -63,7 +63,8 @@ function projectStructure(project: ProjectRow): string {
 }
 
 function getProjectBySlugSafe(slug: string): ProjectRow | undefined {
-  return useDb().prepare('SELECT * FROM projects WHERE slug = ?').get(slug.trim()) as ProjectRow | undefined;
+  return useDb().prepare('SELECT * FROM projects WHERE slug = ?').get(slug.trim()) as
+    ProjectRow | undefined;
 }
 
 // ============================================================================
@@ -78,10 +79,10 @@ async function authenticateWriteAccess(event: H3Event) {
   try {
     const session = await requireUserSession(event);
     return session.user as { id: number; email: string; name: string; avatar: string };
-  } catch (error) {
+  } catch {
     throw createError({
       statusCode: 401,
-      message: 'Authentication required for write operations. Please log in first.'
+      message: 'Authentication required for write operations. Please log in first.',
     });
   }
 }
@@ -91,13 +92,14 @@ async function authenticateWriteAccess(event: H3Event) {
  */
 function hasProjectWriteAccess(projectId: number, userId: number, email: string): boolean {
   const db = useDb();
-  
+
   // Check if user is project owner
   const owner = db.prepare('SELECT owner_id FROM projects WHERE id = ?').get(projectId);
   if (owner && owner.owner_id === userId) return true;
-  
+
   // Check if user is project member
-  const isMember = db.prepare('SELECT 1 FROM project_members WHERE project_id = ? AND email = ?')
+  const isMember = db
+    .prepare('SELECT 1 FROM project_members WHERE project_id = ? AND email = ?')
     .get(projectId, email);
   return !!isMember;
 }
@@ -113,17 +115,27 @@ function createPageVersion(
   userId: number,
   isAiEdit: boolean = false
 ): number {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     INSERT INTO page_versions (page_id, content, title, edited_by_user_id, is_ai_edit, created_at)
     VALUES (?, ?, ?, ?, ?, datetime('now'))
-  `).run(pageId, content, title, userId).lastInsertRowid as number;
+  `
+    )
+    .run(pageId, content, title, userId, isAiEdit ? 1 : 0).lastInsertRowid as number;
 }
 
 /**
  * Get page version history for audit trail
  */
-function getPageVersionHistory(db: Database.Database, pageId: number, limit: number = 10): any[] {
-  return db.prepare(`
+export function getPageVersionHistory(
+  db: Database.Database,
+  pageId: number,
+  limit: number = 10
+): any[] {
+  return db
+    .prepare(
+      `
     SELECT pv.id, pv.content, pv.title, pv.created_at, pv.is_ai_edit,
            u.name as editor_name, u.email as editor_email
     FROM page_versions pv
@@ -131,7 +143,9 @@ function getPageVersionHistory(db: Database.Database, pageId: number, limit: num
     WHERE pv.page_id = ?
     ORDER BY pv.created_at DESC
     LIMIT ?
-  `).all(pageId, limit);
+  `
+    )
+    .all(pageId, limit);
 }
 
 // ============================================================================
@@ -151,26 +165,30 @@ function registerCreatePageTool(server: McpServer) {
         title: z.string().min(1).describe('Page title'),
         content: z.string().optional().describe('Initial page content (markdown)'),
         section: z.string().optional().describe('Section slug to place page under (optional)'),
-        isAiEdit: z.boolean().optional().default(false).describe('Marks this as an AI-generated edit for version tracking'),
+        isAiEdit: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe('Marks this as an AI-generated edit for version tracking'),
       },
     },
     async ({ project, title, content = '', section, isAiEdit = false }, { _request }) => {
       const event = _request as unknown as H3Event;
       const user = await authenticateWriteAccess(event);
-      
+
       const projectRow = getProjectBySlugSafe(project.trim());
       if (!projectRow) {
         return errorText(
           `No project with slug "${project}". Call list_projects to see available projects.`
         );
       }
-      
+
       if (!hasProjectWriteAccess(projectRow.id, user.id, user.email)) {
         return errorText('You do not have permission to create pages in this project.');
       }
-      
+
       const db = useDb();
-      
+
       // Determine section ID if provided
       let sectionId: number | null = null;
       if (section) {
@@ -184,30 +202,49 @@ function registerCreatePageTool(server: McpServer) {
         }
         sectionId = sectionRow.id;
       }
-      
+
       // Calculate position (last + 1)
       const maxPos = db
-        .prepare('SELECT COALESCE(MAX(position), 0) + 1 as pos FROM pages WHERE project_id = ? AND section_id IS NULL')
+        .prepare(
+          'SELECT COALESCE(MAX(position), 0) + 1 as pos FROM pages WHERE project_id = ? AND section_id IS NULL'
+        )
         .get(projectRow.id) as { pos: number };
-      
+
       // Create the page
-      const result = db.prepare(`
+      const result = db
+        .prepare(
+          `
         INSERT INTO pages (project_id, section_id, slug, title, content, position, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
-      `).run(projectRow.id, sectionId, title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 64), title, content, maxPos.pos);
-      
+      `
+        )
+        .run(
+          projectRow.id,
+          sectionId,
+          title
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .slice(0, 64),
+          title,
+          content,
+          maxPos.pos
+        );
+
       const pageId = result.lastInsertRowid as number;
-      
+
       // Create version entry for audit trail
       createPageVersion(db, pageId, content, title, user.id, isAiEdit);
-      
+
       return text(
         `Page created successfully!\n\n` +
-        `ID: ${pageId}\n` +
-        `Slug: ${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 64)}\n` +
-        `Title: ${title}\n` +
-        `Project: ${project}\n` +
-        `Created by: ${user.email} (${isAiEdit ? 'AI' : 'Human'})`
+          `ID: ${pageId}\n` +
+          `Slug: ${title
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .slice(0, 64)}\n` +
+          `Title: ${title}\n` +
+          `Project: ${project}\n` +
+          `Created by: ${user.email} (${isAiEdit ? 'AI' : 'Human'})`
       );
     }
   );
@@ -231,56 +268,62 @@ function registerUpdatePageTool(server: McpServer) {
         page: z.string().describe('Page slug to update'),
         content: z.string().optional().describe('New page content (markdown)'),
         title: z.string().optional().describe('New page title'),
-        isAiEdit: z.boolean().optional().default(false).describe('Marks this as an AI-generated edit'),
+        isAiEdit: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe('Marks this as an AI-generated edit'),
         versionComment: z.string().optional().describe('Optional comment about this change'),
       },
     },
     async ({ project, page, content, title, isAiEdit = false, versionComment }, { _request }) => {
       const event = _request as unknown as H3Event;
       const user = await authenticateWriteAccess(event);
-      
+
       const projectRow = getProjectBySlugSafe(project.trim());
       if (!projectRow) {
         return errorText(
           `No project with slug "${project}". Call list_projects to see available projects.`
         );
       }
-      
+
       if (!hasProjectWriteAccess(projectRow.id, user.id, user.email)) {
         return errorText('You do not have permission to update pages in this project.');
       }
-      
+
       const db = useDb();
-      
+
       // Find the page
       const pageRow = db
         .prepare('SELECT id, content, title FROM pages WHERE project_id = ? AND slug = ?')
         .get(projectRow.id, page.trim()) as PageRow | undefined;
-      
+
       if (!pageRow) {
         return errorText(
           `No page "${page}" in project "${project}". Call get_project to see available pages.`
         );
       }
-      
+
       // Update the page
       const newContent = content ?? pageRow.content;
       const newTitle = title ?? pageRow.title;
-      
-      db.prepare(`
+
+      db.prepare(
+        `
         UPDATE pages SET content = ?, title = ?, updated_at = datetime('now')
         WHERE id = ?
-      `).run(newContent, newTitle, pageRow.id);
-      
+      `
+      ).run(newContent, newTitle, pageRow.id);
+
       // Create version entry for audit trail
       createPageVersion(db, pageRow.id, newContent, newTitle, user.id, isAiEdit);
-      
+
       return text(
         `Page updated successfully!\n\n` +
-        `ID: ${pageRow.id}\n` +
-        `Title: ${newTitle}\n` +
-        `Last updated by: ${user.email} (${isAiEdit ? 'AI' : 'Human'})` +
-        (versionComment ? `\nComment: ${versionComment}` : '')
+          `ID: ${pageRow.id}\n` +
+          `Title: ${newTitle}\n` +
+          `Last updated by: ${user.email} (${isAiEdit ? 'AI' : 'Human'})` +
+          (versionComment ? `\nComment: ${versionComment}` : '')
       );
     }
   );
@@ -307,20 +350,20 @@ function registerCreateSectionTool(server: McpServer) {
     async ({ project, title, parent }, { _request }) => {
       const event = _request as unknown as H3Event;
       const user = await authenticateWriteAccess(event);
-      
+
       const projectRow = getProjectBySlugSafe(project.trim());
       if (!projectRow) {
         return errorText(
           `No project with slug "${project}". Call list_projects to see available projects.`
         );
       }
-      
+
       if (!hasProjectWriteAccess(projectRow.id, user.id, user.email)) {
         return errorText('You do not have permission to create sections in this project.');
       }
-      
+
       const db = useDb();
-      
+
       // Check if parent section exists
       let parentId: number | null = null;
       if (parent) {
@@ -334,24 +377,30 @@ function registerCreateSectionTool(server: McpServer) {
         }
         parentId = parentSection.id;
       }
-      
+
       // Calculate position
       const maxPos = db
-        .prepare('SELECT COALESCE(MAX(position), 0) + 1 as pos FROM sections WHERE project_id = ? AND parent_id IS NULL')
+        .prepare(
+          'SELECT COALESCE(MAX(position), 0) + 1 as pos FROM sections WHERE project_id = ? AND parent_id IS NULL'
+        )
         .get(projectRow.id) as { pos: number };
-      
+
       // Create the section
-      const result = db.prepare(`
+      const result = db
+        .prepare(
+          `
         INSERT INTO sections (project_id, parent_id, title, position)
         VALUES (?, ?, ?, ?)
-      `).run(projectRow.id, parentId, title, maxPos.pos);
-      
+      `
+        )
+        .run(projectRow.id, parentId, title, maxPos.pos);
+
       return text(
         `Section created successfully!\n\n` +
-        `ID: ${result.lastInsertRowid}\n` +
-        `Title: ${title}\n` +
-        `Project: ${project}\n` +
-        `Created by: ${user.email}`
+          `ID: ${result.lastInsertRowid}\n` +
+          `Title: ${title}\n` +
+          `Project: ${project}\n` +
+          `Created by: ${user.email}`
       );
     }
   );
@@ -383,7 +432,7 @@ async function generateSummaryWithAI(prompt: string, temperature = 0.7): Promise
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
           model,
@@ -417,9 +466,7 @@ async function generateSummaryWithAI(prompt: string, temperature = 0.7): Promise
     }
 
     const data = await response.json();
-    return provider === 'openai'
-      ? data.choices[0].message.content
-      : data.content[0].text;
+    return provider === 'openai' ? data.choices[0].message.content : data.content[0].text;
   } catch (error) {
     console.error('AI summary generation error:', error);
     throw new Error(`Summary generation failed: ${error.message}`);
@@ -437,52 +484,59 @@ function registerSearchAndSummarizeTool(server: McpServer) {
       inputSchema: {
         query: z.string().describe('Search query'),
         project: z.string().optional().describe('Optional project slug to limit search'),
-        maxResults: z.number().optional().default(5).describe('Maximum number of results to include in summary'),
-        temperature: z.number().optional().default(0.7).describe('AI temperature for summary generation'),
+        maxResults: z
+          .number()
+          .optional()
+          .default(5)
+          .describe('Maximum number of results to include in summary'),
+        temperature: z
+          .number()
+          .optional()
+          .default(0.7)
+          .describe('AI temperature for summary generation'),
       },
     },
     async ({ query, project, maxResults = 5, temperature = 0.7 }, { _request }) => {
       const db = useDb();
       const needle = query.trim();
       if (!needle) return errorText('Provide a non-empty search query.');
-      
+
       const pattern = `%${needle.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
       const projectFilter = project?.trim();
-      
-      const rows = db.prepare(
-        `
+
+      const rows = db
+        .prepare(
+          `
         SELECT p.slug AS project, pg.slug AS page, pg.title, pg.content
         FROM pages pg JOIN projects p ON p.id = pg.project_id
         WHERE ${projectFilter ? 'p.slug = ? AND' : ''}
           (pg.title LIKE ? ESCAPE '\\\\' OR pg.content LIKE ? ESCAPE '\\\\')
         ORDER BY p.slug, pg.slug LIMIT ?
       `
-      ).all(...(projectFilter ? [projectFilter] : []), pattern, pattern, maxResults) as {
+        )
+        .all(...(projectFilter ? [projectFilter] : []), pattern, pattern, maxResults) as {
         project: string;
         page: string;
         title: string;
         content: string;
       }[];
-      
+
       if (!rows.length) {
         return text(
           `No pages match "${needle}"${project ? ` in project "${project}"` : ''}.\n\n` +
-          `Try searching for related terms or broaden your query.`
+            `Try searching for related terms or broaden your query.`
         );
       }
-      
+
       // Build content for AI summary
       const searchResults = rows.map((row) => {
         const haystack = row.content.toLowerCase();
         const at = haystack.indexOf(needle.toLowerCase());
         const from = Math.max(0, at - SNIPPET_CONTEXT / 2);
-        const snippet = row.content.slice(
-          from,
-          at + needle.length + SNIPPET_CONTEXT / 2
-        );
+        const snippet = row.content.slice(from, at + needle.length + SNIPPET_CONTEXT / 2);
         return `- ${row.title} (${row.project}/${row.page})\n  ...${snippet.replace(/\s+/g, ' ').trim()}...`;
       });
-      
+
       const prompt = `Answer the question: "${needle}"
       
 Here are the search results from the documentation:
@@ -491,27 +545,27 @@ ${searchResults.join('\n\n')}
 
 Please provide a concise summary of the answers found, including specific page references. 
 Format your response in markdown.`;
-      
+
       try {
         const summary = await generateSummaryWithAI(prompt, temperature);
-        
+
         return text(
           `## Search Results Summary\n\n` +
-          `**Query:** "${needle}"\n` +
-          `**Results Found:** ${rows.length}\n\n` +
-          `---\n\n` +
-          `**AI Summary:**\n${summary}\n\n` +
-          `---\n\n` +
-          `**Detailed Results:**\n${searchResults.join('\n\n')}`
+            `**Query:** "${needle}"\n` +
+            `**Results Found:** ${rows.length}\n\n` +
+            `---\n\n` +
+            `**AI Summary:**\n${summary}\n\n` +
+            `---\n\n` +
+            `**Detailed Results:**\n${searchResults.join('\n\n')}`
         );
       } catch (error) {
         // Fallback to just returning the search results if AI fails
         return text(
           `## Search Results\n\n` +
-          `**Query:** "${needle}"\n` +
-          `**Results Found:** ${rows.length}\n\n` +
-          `**Note:** AI summary generation failed (${error.message}). Showing raw results:\n\n` +
-          `${searchResults.join('\n\n')}`
+            `**Query:** "${needle}"\n` +
+            `**Results Found:** ${rows.length}\n\n` +
+            `**Note:** AI summary generation failed (${error.message}). Showing raw results:\n\n` +
+            `${searchResults.join('\n\n')}`
         );
       }
     }
@@ -602,7 +656,9 @@ function buildMcpServer(): McpServer {
           `No project with slug "${project}". Call list_projects to see available projects.`
         );
       const pageRow = db
-        .prepare('SELECT id, slug, title, content, updated_at FROM pages WHERE project_id = ? AND slug = ?')
+        .prepare(
+          'SELECT id, slug, title, content, updated_at FROM pages WHERE project_id = ? AND slug = ?'
+        )
         .get(row.id, page.trim()) as PageRow | undefined;
       if (!pageRow)
         return errorText(
@@ -644,11 +700,11 @@ function buildMcpServer(): McpServer {
     `
         )
         .all(...(projectFilter ? [projectFilter] : []), pattern, pattern) as {
-          project: string;
-          page: string;
-          title: string;
-          content: string;
-        }[];
+        project: string;
+        page: string;
+        title: string;
+        content: string;
+      }[];
 
       if (!rows.length)
         return text(`No pages match "${needle}"${project ? ` in project "${project}"` : ''}.`);

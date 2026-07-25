@@ -1,39 +1,39 @@
 <script setup lang="ts">
-const props = defineProps<{
-  isOpen: boolean
-  onClose: () => void
-  onConnect: (address: string, chainId: number) => void
-}>()
+defineProps<{
+  isOpen: boolean;
+  onClose: () => void;
+  onConnect: (address: string, chainId: number) => void;
+}>();
 
-const emit = defineEmits(['close', 'connect'])
+const emit = defineEmits(['close', 'connect']);
 
 const wallets = [
   { name: 'MetaMask', icon: '🦊', supported: true },
   { name: 'Phantom', icon: '👻', supported: true },
   { name: 'Coinbase Wallet', icon: ' wallet', supported: true },
-  { name: 'Trust Wallet', icon: '🛡️', supported: true }
-]
+  { name: 'Trust Wallet', icon: '🛡️', supported: true },
+];
 
 const connectWallet = async (walletName: string) => {
   try {
     if (!window.ethereum) {
-      throw new Error('Ethereum wallet not found. Please install MetaMask or another Web3 wallet.')
+      throw new Error('Ethereum wallet not found. Please install MetaMask or another Web3 wallet.');
     }
 
     // Request account connection
-    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-    const address = accounts[0]
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    const address = accounts[0];
 
     // Get chain ID
-    const chainIdRaw = await window.ethereum.request({ method: 'eth_chainId' })
-    const chainId = parseInt(chainIdRaw, 16)
+    const chainIdRaw = await window.ethereum.request({ method: 'eth_chainId' });
+    const chainId = parseInt(chainIdRaw, 16);
 
-    emit('connect', address, chainId)
+    emit('connect', address, chainId);
   } catch (error: any) {
-    console.error(`Failed to connect ${walletName}:`, error)
-    alert(`Failed to connect ${walletName}: ${error.message}`)
+    console.error(`Failed to connect ${walletName}:`, error);
+    alert(`Failed to connect ${walletName}: ${error.message}`);
   }
-}
+};
 </script>
 
 <template>
@@ -49,7 +49,7 @@ const connectWallet = async (walletName: string) => {
           v-for="wallet in wallets"
           :key="wallet.name"
           class="wallet-item"
-          :class="{ 'disabled': !wallet.supported }"
+          :class="{ disabled: !wallet.supported }"
           @click="wallet.supported ? connectWallet(wallet.name) : null"
         >
           <div class="wallet-icon">{{ wallet.icon }}</div>

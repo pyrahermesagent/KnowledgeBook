@@ -139,6 +139,7 @@ See the [full API documentation](https://github.com/knowledgebook/docs/blob/main
 - pydantic >= 2.0.0
 
 Optional:
+
 - web3 >= 6.0.0 (for Web3 features)
 
 ## Contributing

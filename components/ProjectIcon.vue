@@ -1,12 +1,20 @@
 <script setup lang="ts">
-const props = defineProps<{ name: string, iconUrl?: string, size?: number }>()
-const px = computed(() => `${props.size ?? 32}px`)
-const letter = computed(() => (props.name?.trim()[0] ?? '?').toUpperCase())
+const props = defineProps<{ name: string; iconUrl?: string; size?: number }>();
+const px = computed(() => `${props.size ?? 32}px`);
+const letter = computed(() => (props.name?.trim()[0] ?? '?').toUpperCase());
 </script>
 
 <template>
-  <img v-if="iconUrl" :src="iconUrl" :alt="name" class="project-icon" :style="{ width: px, height: px }">
-  <span v-else class="project-icon project-icon-letter" :style="{ width: px, height: px }">{{ letter }}</span>
+  <img
+    v-if="iconUrl"
+    :src="iconUrl"
+    :alt="name"
+    class="project-icon"
+    :style="{ width: px, height: px }"
+  />
+  <span v-else class="project-icon project-icon-letter" :style="{ width: px, height: px }">{{
+    letter
+  }}</span>
 </template>
 
 <style scoped>

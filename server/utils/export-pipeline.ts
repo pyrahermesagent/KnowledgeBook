@@ -2,10 +2,9 @@
 // Supports 5+ export formats with status tracking
 // Formats: web, pdf, epub, zip, API response
 
-import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'fs';
-import { join, resolve, dirname } from 'path';
+import { mkdirSync, writeFileSync } from 'fs';
+import { join, resolve } from 'path';
 import { tmpdir } from 'os';
-import type { H3Event } from 'h3';
 
 export interface ExportOptions {
   format: 'web' | 'pdf' | 'epub' | 'zip' | 'api';
@@ -112,7 +111,7 @@ const exportHistoryStore: ExportHistoryItem[] = [];
 // Export status tracking helpers
 export function createExportStatus(projectSlug: string, format: string): string {
   const exportId = `exp_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-  
+
   exportStatusStore[exportId] = {
     exportId,
     projectSlug,
@@ -120,7 +119,7 @@ export function createExportStatus(projectSlug: string, format: string): string 
     status: 'pending',
     createdAt: new Date().toISOString(),
   };
-  
+
   return exportId;
 }
 
@@ -131,7 +130,7 @@ export function updateExportStatus(exportId: string, updates: Partial<ExportStat
       ...updates,
       updatedAt: new Date().toISOString(),
     };
-    
+
     // Update history
     if (updates.status === 'completed' || updates.status === 'failed') {
       const historyItem: ExportHistoryItem = {
@@ -165,20 +164,22 @@ export function clearExportStatus(exportId: string): boolean {
 }
 
 // Export handlers for each format
-async function exportToWebPipeline(options: ExportOptions & { project: any; sections: any[] }): Promise<ExportResult> {
-  const { project, sections, outputDir, includeAssets = true } = options;
-  
+async function exportToWebPipeline(
+  options: ExportOptions & { project: any; sections: any[] }
+): Promise<ExportResult> {
+  const { project, outputDir, includeAssets = true } = options;
+
   const outputDirectory = outputDir || resolve(tmpdir(), `kb-export-${project.slug}-${Date.now()}`);
   mkdirSync(outputDirectory, { recursive: true });
-  
+
   // Use static export functionality
   const { exportPlainHTML } = await import('./static-export');
-  const result = await exportPlainHTML(project, { 
+  const result = await exportPlainHTML(project, {
     format: 'plain',
     outputDir: outputDirectory,
     includeAssets,
   });
-  
+
   return {
     success: result.success,
     format: 'web',
@@ -192,20 +193,29 @@ async function exportToWebPipeline(options: ExportOptions & { project: any; sect
   };
 }
 
-async function exportToPdfPipeline(options: ExportOptions & { project: any; sections: any[] }): Promise<ExportResult> {
-  const { project, sections, theme = 'default', includeToc = true, pageSize = 'A4', margin = '1cm' } = options;
-  
+async function exportToPdfPipeline(
+  options: ExportOptions & { project: any; sections: any[] }
+): Promise<ExportResult> {
+  const {
+    project,
+    sections,
+    theme = 'default',
+    includeToc = true,
+    pageSize = 'A4',
+    margin = '1cm',
+  } = options;
+
   try {
     // Use PDF export functionality
-    const { generateHtmlForPdf, exportToPdf } = await import('./pdf-export');
-    
+    const { exportToPdf } = await import('./pdf-export');
+
     const pdfResult = await exportToPdf(project, sections, {
       theme,
       includeToc,
       pageSize,
       margin,
     });
-    
+
     return {
       success: true,
       format: 'pdf',
@@ -227,16 +237,18 @@ async function exportToPdfPipeline(options: ExportOptions & { project: any; sect
   }
 }
 
-async function exportToEpubPipeline(options: ExportOptions & { project: any; sections: any[] }): Promise<ExportResult> {
+async function exportToEpubPipeline(
+  options: ExportOptions & { project: any; sections: any[] }
+): Promise<ExportResult> {
   const { project, sections, outputDir } = options;
-  
+
   const outputDirectory = outputDir || resolve(tmpdir(), `kb-export-${project.slug}-${Date.now()}`);
   mkdirSync(outputDirectory, { recursive: true });
-  
+
   // Generate EPUB structure
   const epubDir = join(outputDirectory, 'epub');
   mkdirSync(epubDir, { recursive: true });
-  
+
   // Create META-INF/container.xml
   const containerXml = `<?xml version="1.0" encoding="UTF-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
@@ -244,16 +256,19 @@ async function exportToEpubPipeline(options: ExportOptions & { project: any; sec
     <rootfile full-path="content.opf" media-type="application/oebps-package+xml"/>
   </rootfiles>
 </container>`;
-  
+
   writeFileSync(join(epubDir, 'META-INF', 'container.xml'), containerXml, { recursive: true });
-  
+
   // Create content.opf
-  const manifestItems = sections.flatMap((section: any, sIndex: number) => 
-    (section.pages || []).map((page: any, pIndex: number) => 
-      `<item id="page_${sIndex}_${pIndex}" href="pages/page_${sIndex}_${pIndex}.xhtml" media-type="application/xhtml+xml"/>`
+  const manifestItems = sections
+    .flatMap((section: any, sIndex: number) =>
+      (section.pages || []).map(
+        (page: any, pIndex: number) =>
+          `<item id="page_${sIndex}_${pIndex}" href="pages/page_${sIndex}_${pIndex}.xhtml" media-type="application/xhtml+xml"/>`
+      )
     )
-  ).join('\n');
-  
+    .join('\n');
+
   const contentOpf = `<?xml version="1.0" encoding="UTF-8"?>
 <package unique-identifier="pub-id" version="2.0" xmlns="http://www.idpf.org/2007/opf">
   <metadata>
@@ -269,16 +284,18 @@ async function exportToEpubPipeline(options: ExportOptions & { project: any; sec
   </manifest>
   <spine toc="toc">
     <itemref idref="toc" />
-    ${sections.flatMap((section: any, sIndex: number) => 
-      (section.pages || []).map((page: any, pIndex: number) => 
-        `<itemref idref="page_${sIndex}_${pIndex}" />`
+    ${sections
+      .flatMap((section: any, sIndex: number) =>
+        (section.pages || []).map(
+          (page: any, pIndex: number) => `<itemref idref="page_${sIndex}_${pIndex}" />`
+        )
       )
-    ).join('\n')}
+      .join('\n')}
   </spine>
 </package>`;
-  
+
   writeFileSync(join(epubDir, 'content.opf'), contentOpf);
-  
+
   // Generate TOC
   const tocXhtml = `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
@@ -289,16 +306,19 @@ async function exportToEpubPipeline(options: ExportOptions & { project: any; sec
     <nav epub:type="toc">
       <h1>${escapeXml(project.name)} - Table of Contents</h1>
       <ol>
-        ${sections.map((section: any, sIndex: number) => 
-          `<li><a href="pages/page_${sIndex}_0.xhtml">${escapeXml(section.title || 'Section')}</a></li>`
-        ).join('\n')}
+        ${sections
+          .map(
+            (section: any, sIndex: number) =>
+              `<li><a href="pages/page_${sIndex}_0.xhtml">${escapeXml(section.title || 'Section')}</a></li>`
+          )
+          .join('\n')}
       </ol>
     </nav>
   </body>
 </html>`;
-  
+
   writeFileSync(join(epubDir, 'toc.xhtml'), tocXhtml);
-  
+
   // Generate page files
   let pageCounter = 0;
   for (const section of sections) {
@@ -313,14 +333,14 @@ async function exportToEpubPipeline(options: ExportOptions & { project: any; sec
     <div>${convertMarkdownToHtml(page.content || '')}</div>
   </body>
 </html>`;
-      
+
       const pageDir = join(epubDir, 'pages');
       mkdirSync(pageDir, { recursive: true });
       writeFileSync(join(pageDir, `page_${pageCounter}.xhtml`), pageXhtml);
       pageCounter++;
     }
   }
-  
+
   return {
     success: true,
     format: 'epub',
@@ -333,25 +353,27 @@ async function exportToEpubPipeline(options: ExportOptions & { project: any; sec
   };
 }
 
-async function exportToZipPipeline(options: ExportOptions & { project: any; sections: any[] }): Promise<ExportResult> {
-  const { project, sections, outputDir, format = 'web' } = options;
-  
+async function exportToZipPipeline(
+  options: ExportOptions & { project: any; sections: any[] }
+): Promise<ExportResult> {
+  const { project, outputDir, format = 'web' } = options;
+
   const outputDirectory = outputDir || resolve(tmpdir(), `kb-export-${project.slug}-${Date.now()}`);
   mkdirSync(outputDirectory, { recursive: true });
-  
+
   // For web format, use static export
   if (format === 'web') {
     const { exportPlainHTML } = await import('./static-export');
-    const result = await exportPlainHTML(project, { 
+    const result = await exportPlainHTML(project, {
       format: 'plain',
       outputDir: outputDirectory,
       includeAssets: true,
     });
-    
+
     // Zip the output directory
     // In a real implementation, this would use a zip library
     // For now, we return the directory path as a placeholder
-    
+
     return {
       success: result.success,
       format: 'zip',
@@ -364,12 +386,12 @@ async function exportToZipPipeline(options: ExportOptions & { project: any; sect
       completedAt: result.success ? new Date().toISOString() : undefined,
     };
   }
-  
+
   // For EPUB format, generate EPUB then zip
   if (format === 'epub') {
     return await exportToEpubPipeline(options as any);
   }
-  
+
   return {
     success: false,
     format: 'zip',
@@ -379,11 +401,13 @@ async function exportToZipPipeline(options: ExportOptions & { project: any; sect
   };
 }
 
-async function exportToApiPipeline(options: ExportOptions & { project: any; sections: any[] }): Promise<ExportResult> {
+async function exportToApiPipeline(
+  options: ExportOptions & { project: any; sections: any[] }
+): Promise<ExportResult> {
   const { project, sections } = options;
-  
+
   // Generate content for API response
-  const pages = sections.flatMap((section: any) => 
+  const pages = sections.flatMap((section: any) =>
     (section.pages || []).map((page: any) => ({
       id: page.id,
       title: page.title,
@@ -392,7 +416,7 @@ async function exportToApiPipeline(options: ExportOptions & { project: any; sect
       section: section.title,
     }))
   );
-  
+
   return {
     success: true,
     format: 'api',
@@ -418,48 +442,50 @@ async function exportToApiPipeline(options: ExportOptions & { project: any; sect
 }
 
 // Main export function
-export async function exportContent(options: ExportOptions & { project: any; sections: any[] }): Promise<ExportResult> {
+export async function exportContent(
+  options: ExportOptions & { project: any; sections: any[] }
+): Promise<ExportResult> {
   const { format } = options;
-  
+
   if (!format) {
     throw createError({ statusCode: 400, message: 'Export format is required' });
   }
-  
+
   if (!options.project || !options.sections) {
     throw createError({ statusCode: 400, message: 'Project and sections are required' });
   }
-  
+
   // Create export status record
   const exportId = createExportStatus(options.project.slug, format);
   updateExportStatus(exportId, { status: 'processing' });
-  
+
   try {
     // Route to appropriate handler
     switch (format) {
       case 'web':
         return await exportToWebPipeline(options);
-      
+
       case 'pdf':
         return await exportToPdfPipeline(options);
-      
+
       case 'epub':
         return await exportToEpubPipeline(options);
-      
+
       case 'zip':
         return await exportToZipPipeline(options);
-      
+
       case 'api':
         return await exportToApiPipeline(options);
-      
+
       default:
         throw createError({ statusCode: 400, message: `Unsupported export format: ${format}` });
     }
   } catch (error) {
-    updateExportStatus(exportId, { 
-      status: 'failed', 
-      error: (error as Error).message 
+    updateExportStatus(exportId, {
+      status: 'failed',
+      error: (error as Error).message,
     });
-    
+
     return {
       success: false,
       format,
@@ -474,7 +500,7 @@ export async function exportContent(options: ExportOptions & { project: any; sec
 export function getExport(exportId: string): ExportResult | undefined {
   const status = exportStatusStore[exportId];
   if (!status) return undefined;
-  
+
   return {
     success: status.status === 'completed',
     format: status.format,
@@ -512,7 +538,7 @@ function escapeXml(text: string): string {
 function convertMarkdownToHtml(markdown: string): string {
   // Simple markdown to HTML conversion
   let html = markdown;
-  
+
   // Convert headings
   html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>');
   html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
@@ -520,37 +546,40 @@ function convertMarkdownToHtml(markdown: string): string {
   html = html.replace(/^#### (.*$)/gm, '<h4>$1</h4>');
   html = html.replace(/^##### (.*$)/gm, '<h5>$1</h5>');
   html = html.replace(/^###### (.*$)/gm, '<h6>$1</h6>');
-  
+
   // Convert bold/italic
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-  
+
   // Convert links
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-  
+
   // Convert paragraphs
   html = html.replace(/\n\n/g, '</p><p>');
   html = '<p>' + html + '</p>';
-  
+
   // Clean up
   html = html.replace(/(<p><\/p>)/g, '');
-  
+
   return html;
 }
 
 // Validate export request
-export function validateExportRequest(options: ExportOptions): { valid: boolean; errors: string[] } {
+export function validateExportRequest(options: ExportOptions): {
+  valid: boolean;
+  errors: string[];
+} {
   const errors: string[] = [];
-  
+
   if (!options.projectSlug) {
     errors.push('Project slug is required');
   }
-  
+
   if (!options.format) {
     errors.push('Export format is required');
   } else if (!SUPPORTED_EXPORT_FORMATS[options.format]) {
     errors.push(`Unsupported export format: ${options.format}`);
   }
-  
+
   return { valid: errors.length === 0, errors };
 }

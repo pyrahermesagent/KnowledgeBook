@@ -34,10 +34,37 @@ useHead({
   title: () => (page.value ? `${page.value.title} · ${project.value!.name}` : project.value!.name),
   meta: [{ name: 'description', content: () => project.value?.description ?? '' }],
 });
+
+// The project theme overrides the app-level CSS variables for everything
+// inside .docs. Fields can be null on rows created before theming existed;
+// skipping them keeps the :root defaults from main.css.
+interface ProjectThemeFields {
+  accentColor?: string | null;
+  bgColor?: string | null;
+  bgSubtle?: string | null;
+  textColor?: string | null;
+  textColorMuted?: string | null;
+  borderColor?: string | null;
+  radius?: number | null;
+  fontFamily?: string | null;
+}
+const themeVars = computed(() => {
+  const p = project.value! as ProjectThemeFields;
+  const vars: Record<string, string> = {};
+  if (p.accentColor) vars['--accent'] = p.accentColor;
+  if (p.bgColor) vars['--bg'] = p.bgColor;
+  if (p.bgSubtle) vars['--bg-subtle'] = p.bgSubtle;
+  if (p.textColor) vars['--text'] = p.textColor;
+  if (p.textColorMuted) vars['--text-muted'] = p.textColorMuted;
+  if (p.borderColor) vars['--border'] = p.borderColor;
+  if (p.radius != null) vars['--radius'] = `${p.radius}px`;
+  if (p.fontFamily) vars['--font'] = p.fontFamily;
+  return vars;
+});
 </script>
 
 <template>
-  <div class="docs" :style="{ '--accent': project!.accentColor }">
+  <div class="docs" :style="themeVars">
     <header class="docs-mobile-bar">
       <button
         class="nav-toggle"
@@ -113,6 +140,11 @@ useHead({
   display: flex;
   min-height: 100vh;
   min-height: 100dvh;
+  /* Re-declare inherited properties so the per-project variables above win
+     over the values body computed from the :root defaults. */
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
 }
 .docs-mobile-bar,
 .nav-backdrop,

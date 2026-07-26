@@ -1,81 +1,54 @@
-import MarkdownIt from 'markdown-it'
-import hljs from 'highlight.js'
+import MarkdownIt from 'markdown-it';
+import hljs from 'highlight.js';
 
 // Raw HTML in documents stays disabled so published pages can't inject scripts.
 const md = new MarkdownIt({
   html: false,
   linkify: true,
   typographer: true,
-  highlight (code: string, lang: string) {
+  highlight(code: string, lang: string) {
     if (lang && hljs.getLanguage(lang)) {
       try {
-        return hljs.highlight(code, { language: lang }).value
-      } catch { /* fall through to plain rendering */ }
+        return hljs.highlight(code, { language: lang }).value;
+      } catch {
+        /* fall through to plain rendering */
+      }
     }
-    return ''
-  }
-})
+    return '';
+  },
+});
 
-// Image size parser: ![alt](url){size=small|medium|large}
-function imageSizePlugin (state: any) {
-  let pos = 0
-  while (pos < state.src.length) {
-    // Check for image with size: ![alt](url){size=small|medium|large}
-    const imageWithSizeRegex = /^!\[(.*?)\]\((.*?)\)\{size\s*=\s*(small|medium|large)\}/
-    const match = state.src.slice(pos).match(imageWithSizeRegex)
-    
-    if (match) {
-      const token = state.push('image', 'img', 0)
-      token.attrs = [
-        ['src', match[2]],
-        ['alt', match[1]],
-        ['class', `image-size-${match[3]}`]
-      ]
-      token.markup = 'image-size'
-      token.map = [state.line, state.line]
-      pos += match[0].length
-      continue
-    }
-    
-    // Check for regular image: ![alt](url)
-    const imageRegex = /^!\[(.*?)\]\((.*?)\)/
-    const imageMatch = state.src.slice(pos).match(imageRegex)
-    
-    if (imageMatch) {
-      const token = state.push('image', 'img', 0)
-      token.attrs = [
-        ['src', imageMatch[2]],
-        ['alt', imageMatch[1]]
-      ]
-      token.markup = '![]'
-      token.map = [state.line, state.line]
-      pos += imageMatch[0].length
-      continue
-    }
-    
-    pos++
+const SIZE_SUFFIX = /^\{size\s*=\s*(small|medium|large)\}/;
+
+/**
+ * Adds the `{size=small|medium|large}` suffix to markdown's image syntax:
+ * `![alt](url){size=large}`.
+ *
+ * This only handles the suffix and lets markdown-it parse the image itself. An
+ * inline rule is invoked at `state.pos` and must report whether it consumed
+ * anything there — an earlier version instead rescanned the whole source from
+ * index 0 and always returned true, which told the tokenizer the rest of the
+ * line was consumed. Everything after the first `[` or `!` on a line was
+ * dropped, so plain links lost their paragraph too.
+ */
+function imageSizePlugin(state: any, silent: boolean): boolean {
+  const match = SIZE_SUFFIX.exec(state.src.slice(state.pos, state.posMax));
+  if (!match) return false;
+
+  // Only a suffix directly after an image counts; `{size=small}` on its own is
+  // ordinary text.
+  const previous = state.tokens[state.tokens.length - 1];
+  if (!previous || previous.type !== 'image') return false;
+
+  if (!silent) {
+    previous.attrJoin('class', `image-size-${match[1]}`);
   }
-  return true
+  state.pos += match[0].length;
+  return true;
 }
 
-md.inline.ruler.before('link', 'image-size', imageSizePlugin)
+md.inline.ruler.after('image', 'image-size', imageSizePlugin);
 
-// Render images with class attribute
-md.use(() => {
-  const originalImage = md.renderer.rules.image
-  md.renderer.rules.image = (tokens: any[], idx: number) => {
-    const token = tokens[idx]
-    const src = token.attrs?.find((a: any[]) => a[0] === 'src')?.[1] ?? ''
-    const alt = token.attrs?.find((a: any[]) => a[0] === 'alt')?.[1] ?? ''
-    const cls = token.attrs?.find((a: any[]) => a[0] === 'class')?.[1] ?? ''
-    
-    if (cls) {
-      return `<img src="${src}" alt="${alt}" class="${cls}" />`
-    }
-    return originalImage?.(tokens, idx) ?? `<img src="${src}" alt="${alt}" />`
-  }
-})
-
-export function useMarkdown () {
-  return { render: (source: string) => md.render(source ?? '') }
+export function useMarkdown() {
+  return { render: (source: string) => md.render(source ?? '') };
 }

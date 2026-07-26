@@ -1,0 +1,13 @@
+{
+  // Nuxt generates the real configs into .nuxt during `nuxt prepare` (wired to
+  // the postinstall script): .nuxt/tsconfig.json for app code and
+  // .nuxt/tsconfig.server.json for Nitro server code, which have different
+  // auto-imports and globals. Both already set "strict": true.
+  //
+  // This root file exists so editors and a bare `tsc` pick up the app context
+  // instead of guessing. Use `npm run typecheck` (nuxt typecheck) to check the
+  // app and server contexts together — checking server/ under this config alone
+  // reports thousands of false "Cannot find name 'useDb'" errors, because the
+  // Nitro auto-import types are only in the server config.
+  "extends": "./.nuxt/tsconfig.json"
+}

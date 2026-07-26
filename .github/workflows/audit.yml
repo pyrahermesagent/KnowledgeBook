@@ -1,0 +1,96 @@
+name: Audit & Lint
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run security audit
+        run: npm audit --audit-level=moderate
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Semgrep security scan
+        # returntocorp/semgrep-action was deprecated and the repo archived in
+        # April 2024, so the old step could never succeed. Run the CLI directly.
+        # `semgrep scan` exits 0 even when it reports findings; add `--error` to
+        # make findings fail the build once the existing ones are triaged.
+        run: |
+          python3 -m pip install --quiet semgrep
+          semgrep scan --config p/security-audit
+
+  code-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Prettier check
+        run: npm run format
+
+  performance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Start server
+        # Audit the build produced by this PR rather than the live production
+        # site, which is not affected by the commit under test.
+        run: |
+          node .output/server/index.mjs &
+          for i in $(seq 1 30); do
+            curl -sSf http://localhost:3000 >/dev/null 2>&1 && exit 0
+            sleep 2
+          done
+          echo "Server did not become ready within 60s" >&2
+          exit 1
+        env:
+          NUXT_SESSION_PASSWORD: ci-only-session-password-not-a-secret-32
+          NUXT_DATABASE_PATH: .data/ci.db
+
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: http://localhost:3000
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+          configPath: ./lighthouserc.json

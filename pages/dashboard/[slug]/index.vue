@@ -1,260 +1,356 @@
 <script setup lang="ts">
 import {
-  ArrowLeft, ExternalLink, Plus, Pencil, Trash2, ChevronUp, ChevronDown,
-  Users, Settings, Paperclip, Eye, EyeOff, Menu, X
-} from 'lucide-vue-next'
+  ArrowLeft,
+  ExternalLink,
+  Plus,
+  Pencil,
+  Trash2,
+  ChevronUp,
+  ChevronDown,
+  Users,
+  Settings,
+  Paperclip,
+  Eye,
+  EyeOff,
+  Menu,
+  X,
+  Palette,
+} from '@lucide/vue';
 
-definePageMeta({ middleware: 'auth' })
+definePageMeta({ middleware: 'auth' });
 
-const route = useRoute()
-const slug = route.params.slug as string
-const sidebarOpen = ref(false)
+const route = useRoute();
+const slug = route.params.slug as string;
+const sidebarOpen = ref(false);
 
-const { data: project, refresh: refreshTree, error } = await useFetch(`/api/projects/${slug}`)
-if (error.value) throw createError({ statusCode: 404, message: 'Project not found' })
+const { data: project, refresh: refreshTree, error } = await useFetch(`/api/projects/${slug}`);
+if (error.value) throw createError({ statusCode: 404, message: 'Project not found' });
 
-interface PageStub { id: number, slug: string, title: string }
+interface PageStub {
+  id: number;
+  slug: string;
+  title: string;
+}
 
 // ---------- current page + autosave ----------
-const currentPageId = ref<number | null>(null)
-const pageTitle = ref('')
-const pageContent = ref('')
-const saveState = ref<'saved' | 'saving' | 'dirty' | 'error'>('saved')
-const showPreview = ref(true)
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-let loading = false
+const currentPageId = ref<number | null>(null);
+const pageTitle = ref('');
+const pageContent = ref('');
+const saveState = ref<'saved' | 'saving' | 'dirty' | 'error'>('saved');
+const showPreview = ref(true);
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let loading = false;
 
-const firstPage = computed<PageStub | null>(() =>
-  (project.value?.sections.flatMap((s: any) => s.pages)[0] as PageStub) ?? null)
+const firstPage = computed<PageStub | null>(
+  () => (project.value?.sections.flatMap((s: any) => s.pages)[0] as PageStub) ?? null
+);
 
-async function openPage (id: number) {
-  sidebarOpen.value = false
-  if (saveTimer) { clearTimeout(saveTimer); await saveNow() }
-  loading = true
-  const page = await $fetch<any>(`/api/projects/${slug}/pages/${id}`)
-  currentPageId.value = page.id
-  pageTitle.value = page.title
-  pageContent.value = page.content
-  saveState.value = 'saved'
-  await nextTick()
-  loading = false
+async function openPage(id: number) {
+  sidebarOpen.value = false;
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    await saveNow();
+  }
+  loading = true;
+  const page = await $fetch<any>(`/api/projects/${slug}/pages/${id}`);
+  currentPageId.value = page.id;
+  pageTitle.value = page.title;
+  pageContent.value = page.content;
+  saveState.value = 'saved';
+  await nextTick();
+  loading = false;
 }
 
 watch([pageTitle, pageContent], () => {
-  if (loading || currentPageId.value == null) return
-  saveState.value = 'dirty'
-  if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = setTimeout(saveNow, 900)
-})
+  if (loading || currentPageId.value == null) return;
+  saveState.value = 'dirty';
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 900);
+});
 
-async function saveNow () {
-  saveTimer = null
-  if (currentPageId.value == null || saveState.value === 'saved') return
-  const id = currentPageId.value
-  saveState.value = 'saving'
+async function saveNow() {
+  saveTimer = null;
+  if (currentPageId.value == null || saveState.value === 'saved') return;
+  const id = currentPageId.value;
+  saveState.value = 'saving';
   try {
     await $fetch(`/api/projects/${slug}/pages/${id}`, {
       method: 'PATCH',
-      body: { title: pageTitle.value, content: pageContent.value }
-    })
-    if (saveState.value === 'saving') saveState.value = 'saved'
-    const stub = project.value?.sections.flatMap((s: any) => s.pages).find((p: PageStub) => p.id === id)
-    if (stub) stub.title = pageTitle.value
+      body: { title: pageTitle.value, content: pageContent.value },
+    });
+    if (saveState.value === 'saving') saveState.value = 'saved';
+    const stub = project.value?.sections
+      .flatMap((s: any) => s.pages)
+      .find((p: PageStub) => p.id === id);
+    if (stub) stub.title = pageTitle.value;
   } catch {
-    saveState.value = 'error'
+    saveState.value = 'error';
   }
 }
 
 // Flush pending edits when the tab closes.
-onMounted(() => window.addEventListener('beforeunload', saveNow))
-onBeforeUnmount(() => { window.removeEventListener('beforeunload', saveNow); saveNow() })
+onMounted(() => window.addEventListener('beforeunload', saveNow));
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', saveNow);
+  saveNow();
+});
 
 // ---------- sections & pages ----------
-async function addSection () {
-  const title = prompt('Section title')?.trim()
-  if (!title) return
-  await $fetch(`/api/projects/${slug}/sections`, { method: 'POST', body: { title } })
-  await refreshTree()
+async function addSection() {
+  const title = prompt('Section title')?.trim();
+  if (!title) return;
+  await $fetch(`/api/projects/${slug}/sections`, { method: 'POST', body: { title } });
+  await refreshTree();
 }
 
-async function renameSection (section: any) {
-  const title = prompt('Section title', section.title)?.trim()
-  if (!title || title === section.title) return
-  await $fetch(`/api/projects/${slug}/sections/${section.id}`, { method: 'PATCH', body: { title } })
-  await refreshTree()
+async function renameSection(section: any) {
+  const title = prompt('Section title', section.title)?.trim();
+  if (!title || title === section.title) return;
+  await $fetch(`/api/projects/${slug}/sections/${section.id}`, {
+    method: 'PATCH',
+    body: { title },
+  });
+  await refreshTree();
 }
 
-async function deleteSection (section: any) {
-  if (!confirm(`Delete section "${section.title}" and all its pages?`)) return
-  await $fetch(`/api/projects/${slug}/sections/${section.id}`, { method: 'DELETE' })
-  if (section.pages.some((p: PageStub) => p.id === currentPageId.value)) currentPageId.value = null
-  await refreshTree()
+async function deleteSection(section: any) {
+  if (!confirm(`Delete section "${section.title}" and all its pages?`)) return;
+  await $fetch(`/api/projects/${slug}/sections/${section.id}`, { method: 'DELETE' });
+  if (section.pages.some((p: PageStub) => p.id === currentPageId.value)) currentPageId.value = null;
+  await refreshTree();
 }
 
-async function addPage (sectionId: number) {
-  const title = prompt('Page title')?.trim()
-  if (!title) return
-  const { id } = await $fetch<any>(`/api/projects/${slug}/pages`, { method: 'POST', body: { title, sectionId } })
-  await refreshTree()
-  await openPage(id)
+async function addPage(sectionId: number) {
+  const title = prompt('Page title')?.trim();
+  if (!title) return;
+  const { id } = await $fetch<any>(`/api/projects/${slug}/pages`, {
+    method: 'POST',
+    body: { title, sectionId },
+  });
+  await refreshTree();
+  await openPage(id);
 }
 
-async function deletePage (page: PageStub) {
-  if (!confirm(`Delete page "${page.title}"?`)) return
-  await $fetch(`/api/projects/${slug}/pages/${page.id}`, { method: 'DELETE' })
-  if (currentPageId.value === page.id) currentPageId.value = null
-  await refreshTree()
+async function deletePage(page: PageStub) {
+  if (!confirm(`Delete page "${page.title}"?`)) return;
+  await $fetch(`/api/projects/${slug}/pages/${page.id}`, { method: 'DELETE' });
+  if (currentPageId.value === page.id) currentPageId.value = null;
+  await refreshTree();
 }
 
-async function movePage (section: any, index: number, delta: number) {
-  const other = section.pages[index + delta]
-  if (!other) return
-  const page = section.pages[index]
+async function movePage(section: any, index: number, delta: number) {
+  const other = section.pages[index + delta];
+  if (!other) return;
+  const page = section.pages[index];
   await Promise.all([
-    $fetch(`/api/projects/${slug}/pages/${page.id}`, { method: 'PATCH', body: { position: index + delta } }),
-    $fetch(`/api/projects/${slug}/pages/${other.id}`, { method: 'PATCH', body: { position: index } })
-  ])
-  await refreshTree()
+    $fetch(`/api/projects/${slug}/pages/${page.id}`, {
+      method: 'PATCH',
+      body: { position: index + delta },
+    }),
+    $fetch(`/api/projects/${slug}/pages/${other.id}`, {
+      method: 'PATCH',
+      body: { position: index },
+    }),
+  ]);
+  await refreshTree();
 }
 
 // ---------- uploads ----------
-const editorEl = ref<HTMLTextAreaElement>()
-const imageSize = ref<'medium' | 'small' | 'large'>('medium')
-const uploading = ref(false)
-async function uploadFile (file: File): Promise<string> {
-  const form = new FormData()
-  form.append('file', file)
-  const res = await $fetch<{ url: string }>(`/api/projects/${slug}/upload`, { method: 'POST', body: form })
-  return res.url
+const editorEl = ref<HTMLTextAreaElement>();
+const imageSize = ref<'medium' | 'small' | 'large'>('medium');
+const uploading = ref(false);
+async function uploadFile(file: File): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await $fetch<{ url: string }>(`/api/projects/${slug}/upload`, {
+    method: 'POST',
+    body: form,
+  });
+  return res.url;
 }
 
-async function insertUpload (event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (!file) return
-  uploading.value = true
+async function insertUpload(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  uploading.value = true;
   try {
-    const url = await uploadFile(file)
-    let snippet: string
+    const url = await uploadFile(file);
+    let snippet: string;
     if (file.type.startsWith('image/')) {
-      snippet = `![${file.name}](${url}){size=${imageSize.value}}`
+      snippet = `![${file.name}](${url}){size=${imageSize.value}}`;
     } else {
-      snippet = `[${file.name}](${url})`
+      snippet = `[${file.name}](${url})`;
     }
-    const el = editorEl.value
+    const el = editorEl.value;
     if (el) {
-      const pos = el.selectionStart ?? pageContent.value.length
-      pageContent.value = pageContent.value.slice(0, pos) + snippet + pageContent.value.slice(pos)
+      const pos = el.selectionStart ?? pageContent.value.length;
+      pageContent.value = pageContent.value.slice(0, pos) + snippet + pageContent.value.slice(pos);
     } else {
-      pageContent.value += `\n${snippet}`
+      pageContent.value += `\n${snippet}`;
     }
   } catch (e: any) {
-    alert(e.data?.message ?? 'Upload failed')
+    alert(e.data?.message ?? 'Upload failed');
   } finally {
-    uploading.value = false
+    uploading.value = false;
   }
 }
 
 // ---------- settings ----------
-const showSettings = ref(false)
-const settings = reactive({ name: '', description: '', accentColor: '#346ddb', iconUrl: '' })
-const savingSettings = ref(false)
+const showSettings = ref(false);
+const settings = reactive({ name: '', description: '', accentColor: '#346ddb', iconUrl: '' });
+const savingSettings = ref(false);
 
-function openSettings () {
-  settings.name = project.value!.name
-  settings.description = project.value!.description
-  settings.accentColor = project.value!.accentColor
-  settings.iconUrl = project.value!.iconUrl
-  showSettings.value = true
+const showTheme = ref(false);
+const theme = reactive({
+  accentColor: '#346ddb',
+  fontFamily: '',
+  bgColor: '#ffffff',
+  textColor: '#1f2430',
+  borderColor: '#e5e8ec',
+  radius: 8,
+});
+const savingTheme = ref(false);
+
+function openSettings() {
+  settings.name = project.value!.name;
+  settings.description = project.value!.description;
+  settings.accentColor = project.value!.accentColor;
+  settings.iconUrl = project.value!.iconUrl;
+  showSettings.value = true;
 }
 
-async function uploadIcon (event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file) return
-  settings.iconUrl = await uploadFile(file)
+function openTheme() {
+  theme.accentColor = project.value!.accentColor;
+  theme.fontFamily = project.value!.fontFamily;
+  theme.bgColor = project.value!.bgColor;
+  theme.textColor = project.value!.textColor;
+  theme.borderColor = project.value!.borderColor;
+  theme.radius = project.value!.radius;
+  showTheme.value = true;
 }
 
-async function saveSettings () {
-  savingSettings.value = true
+async function uploadIcon(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  settings.iconUrl = await uploadFile(file);
+}
+
+async function saveTheme() {
+  savingTheme.value = true;
   try {
-    await $fetch(`/api/projects/${slug}`, { method: 'PATCH', body: { ...settings } })
-    showSettings.value = false
-    await refreshTree()
+    await $fetch(`/api/projects/${slug}/theme`, { method: 'PATCH', body: { ...theme } });
+    showTheme.value = false;
+    await refreshTree();
   } catch (e: any) {
-    alert(e.data?.message ?? 'Failed to save settings')
+    alert(e.data?.message ?? 'Failed to save theme');
   } finally {
-    savingSettings.value = false
+    savingTheme.value = false;
   }
 }
 
-async function deleteProject () {
-  if (!confirm(`Delete project "${project.value?.name}" permanently? This cannot be undone.`)) return
-  await $fetch(`/api/projects/${slug}`, { method: 'DELETE' })
-  await navigateTo('/dashboard')
+async function saveSettings() {
+  savingSettings.value = true;
+  try {
+    await $fetch(`/api/projects/${slug}`, { method: 'PATCH', body: { ...settings } });
+    showSettings.value = false;
+    await refreshTree();
+  } catch (e: any) {
+    alert(e.data?.message ?? 'Failed to save settings');
+  } finally {
+    savingSettings.value = false;
+  }
+}
+
+async function deleteProject() {
+  if (!confirm(`Delete project "${project.value?.name}" permanently? This cannot be undone.`))
+    return;
+  await $fetch(`/api/projects/${slug}`, { method: 'DELETE' });
+  await navigateTo('/dashboard');
 }
 
 // ---------- team ----------
-interface TeamMember { id: number, email: string, name: string, avatar: string, pending: boolean }
-const { user: sessionUser } = useUserSession()
-const showTeam = ref(false)
-const team = ref<{ admin: { email: string, name: string, avatar: string }, members: TeamMember[] } | null>(null)
-const newMemberEmail = ref('')
-const teamError = ref('')
-const teamBusy = ref(false)
+interface TeamMember {
+  id: number;
+  email: string;
+  name: string;
+  avatar: string;
+  pending: boolean;
+}
+const { user: sessionUser } = useUserSession();
+const showTeam = ref(false);
+const team = ref<{
+  admin: { email: string; name: string; avatar: string };
+  members: TeamMember[];
+} | null>(null);
+const newMemberEmail = ref('');
+const teamError = ref('');
+const teamBusy = ref(false);
 
-async function loadTeam () {
-  team.value = await $fetch(`/api/projects/${slug}/members`)
+async function loadTeam() {
+  team.value = await $fetch(`/api/projects/${slug}/members`);
 }
 
-async function openTeam () {
-  showTeam.value = true
-  teamError.value = ''
+async function openTeam() {
+  showTeam.value = true;
+  teamError.value = '';
   try {
-    await loadTeam()
+    await loadTeam();
   } catch (e: any) {
-    teamError.value = e.data?.message ?? 'Failed to load members'
+    teamError.value = e.data?.message ?? 'Failed to load members';
   }
 }
 
-async function addMember () {
-  teamBusy.value = true
-  teamError.value = ''
+async function addMember() {
+  teamBusy.value = true;
+  teamError.value = '';
   try {
-    await $fetch(`/api/projects/${slug}/members`, { method: 'POST', body: { email: newMemberEmail.value } })
-    newMemberEmail.value = ''
-    await loadTeam()
+    await $fetch(`/api/projects/${slug}/members`, {
+      method: 'POST',
+      body: { email: newMemberEmail.value },
+    });
+    newMemberEmail.value = '';
+    await loadTeam();
   } catch (e: any) {
-    teamError.value = e.data?.message ?? 'Failed to add member'
+    teamError.value = e.data?.message ?? 'Failed to add member';
   } finally {
-    teamBusy.value = false
+    teamBusy.value = false;
   }
 }
 
-async function removeMember (member: TeamMember) {
-  const self = member.email === (sessionUser.value?.email ?? '').toLowerCase()
+async function removeMember(member: TeamMember) {
+  const self = member.email === (sessionUser.value?.email ?? '').toLowerCase();
   const question = self
     ? 'Leave this project? You will lose access to the editor.'
-    : `Remove ${member.name || member.email} from this project?`
-  if (!confirm(question)) return
-  teamError.value = ''
+    : `Remove ${member.name || member.email} from this project?`;
+  if (!confirm(question)) return;
+  teamError.value = '';
   try {
-    await $fetch(`/api/projects/${slug}/members/${member.id}`, { method: 'DELETE' })
-    if (self) return await navigateTo('/dashboard')
-    await loadTeam()
+    await $fetch(`/api/projects/${slug}/members/${member.id}`, { method: 'DELETE' });
+    if (self) return await navigateTo('/dashboard');
+    await loadTeam();
   } catch (e: any) {
-    teamError.value = e.data?.message ?? 'Failed to remove member'
+    teamError.value = e.data?.message ?? 'Failed to remove member';
   }
 }
 
 // Open the first page initially (client only — content fetch requires the session).
-onMounted(() => { if (firstPage.value) openPage(firstPage.value.id) })
+onMounted(() => {
+  if (firstPage.value) openPage(firstPage.value.id);
+});
 
-const saveLabel = computed(() => ({
-  saved: 'Saved', saving: 'Saving…', dirty: 'Unsaved changes…', error: 'Save failed — retrying on next edit'
-}[saveState.value]))
+const saveLabel = computed(
+  () =>
+    ({
+      saved: 'Saved',
+      saving: 'Saving…',
+      dirty: 'Unsaved changes…',
+      error: 'Save failed — retrying on next edit',
+    })[saveState.value]
+);
 
-useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
+useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` });
 </script>
 
 <template>
@@ -262,8 +358,12 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
     <aside class="editor-sidebar" :class="{ open: sidebarOpen }">
       <div class="sidebar-top">
-        <NuxtLink to="/dashboard" class="btn btn-ghost btn-sm"><ArrowLeft :size="15" /> Projects</NuxtLink>
-        <button class="icon-btn sidebar-close" title="Close menu" @click="sidebarOpen = false"><X :size="18" /></button>
+        <NuxtLink to="/dashboard" class="btn btn-ghost btn-sm"
+          ><ArrowLeft :size="15" /> Projects</NuxtLink
+        >
+        <button class="icon-btn sidebar-close" title="Close menu" @click="sidebarOpen = false">
+          <X :size="18" />
+        </button>
       </div>
       <div class="sidebar-project">
         <ProjectIcon :name="project.name" :icon-url="project.iconUrl" :size="34" />
@@ -280,9 +380,15 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
           <div class="tree-section-title">
             <span>{{ section.title }}</span>
             <span class="tree-actions">
-              <button class="icon-btn" title="Add page" @click="addPage(section.id)"><Plus :size="14" /></button>
-              <button class="icon-btn" title="Rename section" @click="renameSection(section)"><Pencil :size="13" /></button>
-              <button class="icon-btn" title="Delete section" @click="deleteSection(section)"><Trash2 :size="13" /></button>
+              <button class="icon-btn" title="Add page" @click="addPage(section.id)">
+                <Plus :size="14" />
+              </button>
+              <button class="icon-btn" title="Rename section" @click="renameSection(section)">
+                <Pencil :size="13" />
+              </button>
+              <button class="icon-btn" title="Delete section" @click="deleteSection(section)">
+                <Trash2 :size="13" />
+              </button>
             </span>
           </div>
           <div
@@ -293,30 +399,51 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
           >
             <button class="tree-page-title" @click="openPage(page.id)">{{ page.title }}</button>
             <span class="tree-actions">
-              <button class="icon-btn" title="Move up" :disabled="i === 0" @click="movePage(section, i, -1)"><ChevronUp :size="14" /></button>
-              <button class="icon-btn" title="Move down" :disabled="i === section.pages.length - 1" @click="movePage(section, i, 1)"><ChevronDown :size="14" /></button>
-              <button class="icon-btn" title="Delete page" @click="deletePage(page)"><Trash2 :size="13" /></button>
+              <button
+                class="icon-btn"
+                title="Move up"
+                :disabled="i === 0"
+                @click="movePage(section, i, -1)"
+              >
+                <ChevronUp :size="14" />
+              </button>
+              <button
+                class="icon-btn"
+                title="Move down"
+                :disabled="i === section.pages.length - 1"
+                @click="movePage(section, i, 1)"
+              >
+                <ChevronDown :size="14" />
+              </button>
+              <button class="icon-btn" title="Delete page" @click="deletePage(page)">
+                <Trash2 :size="13" />
+              </button>
             </span>
           </div>
         </div>
-        <button class="btn btn-ghost btn-sm add-section" @click="addSection"><Plus :size="15" /> Add section</button>
+        <button class="btn btn-ghost btn-sm add-section" @click="addSection">
+          <Plus :size="15" /> Add section
+        </button>
       </nav>
 
       <div class="sidebar-bottom">
         <button class="btn btn-sm" @click="openTeam"><Users :size="15" /> Team</button>
         <button class="btn btn-sm" @click="openSettings"><Settings :size="15" /> Settings</button>
+        <button class="btn btn-sm" @click="openTheme"><Palette :size="15" /> Theme</button>
       </div>
     </aside>
 
     <main class="editor-main">
       <template v-if="currentPageId != null">
         <div class="editor-toolbar">
-          <button class="icon-btn sidebar-toggle" title="Open menu" @click="sidebarOpen = true"><Menu :size="20" /></button>
-          <input v-model="pageTitle" class="input title-input" placeholder="Page title">
+          <button class="icon-btn sidebar-toggle" title="Open menu" @click="sidebarOpen = true">
+            <Menu :size="20" />
+          </button>
+          <input v-model="pageTitle" class="input title-input" placeholder="Page title" />
           <div class="toolbar-buttons">
             <label class="btn btn-sm upload-btn">
               <Paperclip :size="15" /> {{ uploading ? 'Uploading…' : 'Insert file' }}
-              <input type="file" hidden :disabled="uploading" @change="insertUpload">
+              <input type="file" hidden :disabled="uploading" @change="insertUpload" />
             </label>
             <select v-model="imageSize" class="select-size" title="Image size">
               <option value="small">Small</option>
@@ -344,7 +471,13 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
         </div>
       </template>
       <div v-else class="editor-empty">
-        <button class="icon-btn sidebar-toggle editor-empty-menu" title="Open menu" @click="sidebarOpen = true"><Menu :size="20" /></button>
+        <button
+          class="icon-btn sidebar-toggle editor-empty-menu"
+          title="Open menu"
+          @click="sidebarOpen = true"
+        >
+          <Menu :size="20" />
+        </button>
         <span class="muted">Select a page in the menu, or create one to start writing.</span>
       </div>
     </main>
@@ -352,34 +485,103 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
     <div v-if="showSettings" class="modal-backdrop" @click.self="showSettings = false">
       <div class="modal">
         <h2>Project settings</h2>
-        <label>Name
-          <input v-model="settings.name" class="input">
+        <label
+          >Name
+          <input v-model="settings.name" class="input" />
         </label>
-        <label>Description
+        <label
+          >Description
           <textarea v-model="settings.description" class="input" rows="2" />
         </label>
-        <label>Accent color
+        <label
+          >Accent color
           <span class="color-row">
-            <input v-model="settings.accentColor" type="color" class="color-input">
-            <input v-model="settings.accentColor" class="input" style="max-width: 120px">
+            <input v-model="settings.accentColor" type="color" class="color-input" />
+            <input v-model="settings.accentColor" class="input" style="max-width: 120px" />
           </span>
         </label>
-        <label>Icon
+        <label
+          >Icon
           <span class="color-row">
             <ProjectIcon :name="settings.name" :icon-url="settings.iconUrl" :size="40" />
             <label class="btn btn-sm">
               Upload icon
-              <input type="file" accept="image/*" hidden @change="uploadIcon">
+              <input type="file" accept="image/*" hidden @change="uploadIcon" />
             </label>
-            <button v-if="settings.iconUrl" class="btn btn-sm" @click="settings.iconUrl = ''">Remove</button>
+            <button v-if="settings.iconUrl" class="btn btn-sm" @click="settings.iconUrl = ''">
+              Remove
+            </button>
           </span>
         </label>
         <div class="modal-actions">
-          <button v-if="project.isAdmin" class="btn btn-danger" @click="deleteProject">Delete project</button>
+          <button v-if="project.isAdmin" class="btn btn-danger" @click="deleteProject">
+            Delete project
+          </button>
           <span style="flex: 1" />
           <button class="btn" @click="showSettings = false">Cancel</button>
           <button class="btn btn-primary" :disabled="savingSettings" @click="saveSettings">
             {{ savingSettings ? 'Saving…' : 'Save' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showTheme" class="modal-backdrop" @click.self="showTheme = false">
+      <div class="modal">
+        <h2>Theme Settings</h2>
+        <label
+          >Accent Color
+          <span class="color-row">
+            <input v-model="theme.accentColor" type="color" class="color-input" />
+            <input v-model="theme.accentColor" class="input" style="max-width: 120px" />
+          </span>
+        </label>
+        <label
+          >Font Family
+          <select v-model="theme.fontFamily" class="input select-font">
+            <option
+              value='-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+            >
+              System Sans (Default)
+            </option>
+            <option value="Georgia, serif">Georgia (Serif)</option>
+            <option value="'Courier New', Courier, monospace">Courier (Mono)</option>
+            <option value="Arial, sans-serif">Arial</option>
+            <option value="'Times New Roman', Times, serif">Times New Roman</option>
+            <option value="Verdana, sans-serif">Verdana</option>
+            <option value="system-ui, -apple-system, sans-serif">System UI</option>
+          </select>
+        </label>
+        <label
+          >Background Color
+          <span class="color-row">
+            <input v-model="theme.bgColor" type="color" class="color-input" />
+            <input v-model="theme.bgColor" class="input" style="max-width: 120px" />
+          </span>
+        </label>
+        <label
+          >Text Color
+          <span class="color-row">
+            <input v-model="theme.textColor" type="color" class="color-input" />
+            <input v-model="theme.textColor" class="input" style="max-width: 120px" />
+          </span>
+        </label>
+        <label
+          >Border Radius
+          <input
+            type="range"
+            v-model.number="theme.radius"
+            min="0"
+            max="20"
+            class="input input-range"
+          />
+          <span class="range-value">{{ theme.radius }}px</span>
+        </label>
+        <div class="modal-actions">
+          <span style="flex: 1" />
+          <button class="btn" @click="showTheme = false">Cancel</button>
+          <button class="btn btn-primary" :disabled="savingTheme" @click="saveTheme">
+            {{ savingTheme ? 'Saving…' : 'Save' }}
           </button>
         </div>
       </div>
@@ -394,8 +596,10 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
 
         <div v-if="team" class="member-list">
           <div class="member-row">
-            <img v-if="team.admin.avatar" :src="team.admin.avatar" alt="" class="member-avatar">
-            <span v-else class="member-avatar member-avatar-fallback">{{ (team.admin.name || team.admin.email)[0]?.toUpperCase() }}</span>
+            <img v-if="team.admin.avatar" :src="team.admin.avatar" alt="" class="member-avatar" />
+            <span v-else class="member-avatar member-avatar-fallback">{{
+              (team.admin.name || team.admin.email)[0]?.toUpperCase()
+            }}</span>
             <span class="member-name">
               {{ team.admin.name || team.admin.email }}
               <span class="muted member-email">{{ team.admin.email }}</span>
@@ -403,15 +607,21 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
             <span class="badge badge-admin">Admin</span>
           </div>
           <div v-for="member in team.members" :key="member.id" class="member-row">
-            <img v-if="member.avatar" :src="member.avatar" alt="" class="member-avatar">
-            <span v-else class="member-avatar member-avatar-fallback">{{ (member.name || member.email)[0]?.toUpperCase() }}</span>
+            <img v-if="member.avatar" :src="member.avatar" alt="" class="member-avatar" />
+            <span v-else class="member-avatar member-avatar-fallback">{{
+              (member.name || member.email)[0]?.toUpperCase()
+            }}</span>
             <span class="member-name">
               {{ member.name || member.email }}
-              <span class="muted member-email">{{ member.name ? member.email : 'Has not signed in yet' }}</span>
+              <span class="muted member-email">{{
+                member.name ? member.email : 'Has not signed in yet'
+              }}</span>
             </span>
             <span v-if="member.pending" class="badge">Invited</span>
             <span v-else class="badge">Member</span>
-            <button class="icon-btn" title="Remove member" @click="removeMember(member)"><Trash2 :size="15" /></button>
+            <button class="icon-btn" title="Remove member" @click="removeMember(member)">
+              <Trash2 :size="15" />
+            </button>
           </div>
         </div>
 
@@ -423,7 +633,7 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
             placeholder="name@gmail.com"
             required
             :disabled="teamBusy"
-          >
+          />
           <button class="btn btn-primary" :disabled="teamBusy || !newMemberEmail.trim()">
             {{ teamBusy ? 'Adding…' : 'Add member' }}
           </button>
@@ -440,7 +650,11 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
 </template>
 
 <style scoped>
-.editor { display: flex; height: 100vh; height: 100dvh; }
+.editor {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+}
 .editor-sidebar {
   width: var(--sidebar-width);
   border-right: 1px solid var(--border);
@@ -449,13 +663,38 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
   flex-direction: column;
   flex-shrink: 0;
 }
-.sidebar-top { padding: 10px 12px 0; display: flex; justify-content: space-between; align-items: center; }
-.sidebar-close, .sidebar-toggle, .sidebar-backdrop { display: none; }
-.sidebar-project { display: flex; gap: 10px; align-items: center; padding: 12px 16px; }
-.sidebar-project-name { display: grid; line-height: 1.3; }
-.view-link { font-size: 12px; }
-.sidebar-tree { flex: 1; overflow-y: auto; padding: 8px; }
-.tree-section { margin-bottom: 14px; }
+.sidebar-top {
+  padding: 10px 12px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.sidebar-close,
+.sidebar-toggle,
+.sidebar-backdrop {
+  display: none;
+}
+.sidebar-project {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 16px;
+}
+.sidebar-project-name {
+  display: grid;
+  line-height: 1.3;
+}
+.view-link {
+  font-size: 12px;
+}
+.sidebar-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+.tree-section {
+  margin-bottom: 14px;
+}
 .tree-section-title {
   display: flex;
   justify-content: space-between;
@@ -472,8 +711,13 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
   align-items: center;
   border-radius: 6px;
 }
-.tree-page.active { background: var(--accent-soft); }
-.tree-page.active .tree-page-title { color: var(--accent); font-weight: 600; }
+.tree-page.active {
+  background: var(--accent-soft);
+}
+.tree-page.active .tree-page-title {
+  color: var(--accent);
+  font-weight: 600;
+}
 .tree-page-title {
   flex: 1;
   text-align: left;
@@ -486,11 +730,19 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tree-actions { display: none; gap: 2px; }
-.tree-page:hover .tree-actions, .tree-section-title:hover .tree-actions { display: inline-flex; }
+.tree-actions {
+  display: none;
+  gap: 2px;
+}
+.tree-page:hover .tree-actions,
+.tree-section-title:hover .tree-actions {
+  display: inline-flex;
+}
 /* Touch screens have no hover — keep the actions visible. */
 @media (hover: none) {
-  .tree-actions { display: inline-flex; }
+  .tree-actions {
+    display: inline-flex;
+  }
 }
 .icon-btn {
   display: inline-flex;
@@ -503,12 +755,30 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
   color: var(--text-muted);
   border-radius: 4px;
 }
-.icon-btn:hover:not(:disabled) { background: var(--border); color: var(--text); }
-.icon-btn:disabled { opacity: 0.3; cursor: default; }
-.add-section { margin: 4px 8px; }
-.sidebar-bottom { padding: 12px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+.icon-btn:hover:not(:disabled) {
+  background: var(--border);
+  color: var(--text);
+}
+.icon-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.add-section {
+  margin: 4px 8px;
+}
+.sidebar-bottom {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+}
 
-.editor-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.editor-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
 .editor-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -517,15 +787,50 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
   padding: 10px 16px;
   border-bottom: 1px solid var(--border);
 }
-.toolbar-buttons { display: flex; gap: 10px; align-items: center; flex: 1; min-width: 0; }
-.title-input { max-width: 340px; font-weight: 600; }
-.upload-btn { cursor: pointer; }
-.select-size { padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 14px; cursor: pointer; outline: none; }
-.save-state { margin-left: auto; font-size: 13px; white-space: nowrap; }
-.save-state.saved { color: #27ae60; }
-.save-state.error { color: #c0392b; }
-.editor-panes { flex: 1; display: grid; grid-template-columns: 1fr 1fr; min-height: 0; }
-.editor-panes.single { grid-template-columns: 1fr; }
+.toolbar-buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+.title-input {
+  max-width: 340px;
+  font-weight: 600;
+}
+.upload-btn {
+  cursor: pointer;
+}
+.select-size {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  outline: none;
+}
+.save-state {
+  margin-left: auto;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.save-state.saved {
+  color: #27ae60;
+}
+.save-state.error {
+  color: #c0392b;
+}
+.editor-panes {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 0;
+}
+.editor-panes.single {
+  grid-template-columns: 1fr;
+}
 .editor-textarea {
   border: none;
   outline: none;
@@ -536,8 +841,18 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
   line-height: 1.7;
   background: var(--bg);
 }
-.editor-preview { border-left: 1px solid var(--border); padding: 24px; overflow-y: auto; }
-.editor-empty { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.editor-preview {
+  border-left: 1px solid var(--border);
+  padding: 24px;
+  overflow-y: auto;
+}
+.editor-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
 
 /* ---------- mobile ---------- */
 @media (max-width: 860px) {
@@ -551,7 +866,9 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
     transition: transform 0.2s ease;
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
   }
-  .editor-sidebar.open { transform: translateX(0); }
+  .editor-sidebar.open {
+    transform: translateX(0);
+  }
   .sidebar-backdrop {
     display: block;
     position: fixed;
@@ -559,24 +876,51 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
     z-index: 19;
     background: rgba(0, 0, 0, 0.35);
   }
-  .sidebar-close, .sidebar-toggle { display: inline-flex; }
-  .editor-toolbar { padding: 8px 10px; row-gap: 6px; }
-  .title-input { flex: 1; min-width: 0; max-width: none; }
-  .toolbar-buttons { flex-basis: 100%; }
-  .toolbar-btn-text { display: none; }
+  .sidebar-close,
+  .sidebar-toggle {
+    display: inline-flex;
+  }
+  .editor-toolbar {
+    padding: 8px 10px;
+    row-gap: 6px;
+  }
+  .title-input {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+  }
+  .toolbar-buttons {
+    flex-basis: 100%;
+  }
+  .toolbar-btn-text {
+    display: none;
+  }
   /* One pane at a time: the preview toggle switches between write and read. */
-  .editor-panes { grid-template-columns: 1fr; }
-  .editor-panes:not(.single) .editor-textarea { display: none; }
-  .editor-preview { border-left: none; }
-  .editor-textarea, .editor-preview { padding: 16px; }
-  .editor-textarea { font-size: 16px; } /* prevents iOS focus zoom */
-  .icon-btn { padding: 8px; }
+  .editor-panes {
+    grid-template-columns: 1fr;
+  }
+  .editor-panes:not(.single) .editor-textarea {
+    display: none;
+  }
+  .editor-preview {
+    border-left: none;
+  }
+  .editor-textarea,
+  .editor-preview {
+    padding: 16px;
+  }
+  .editor-textarea {
+    font-size: 16px;
+  } /* prevents iOS focus zoom */
+  .icon-btn {
+    padding: 8px;
+  }
 }
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -592,16 +936,83 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
   display: grid;
   gap: 14px;
 }
-.modal h2 { margin: 0; }
-.modal label { display: grid; gap: 4px; font-size: 14px; font-weight: 500; }
-.color-row { display: flex; align-items: center; gap: 10px; }
-.color-input { width: 44px; height: 34px; padding: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); cursor: pointer; }
-.modal-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.team-hint { margin: 0; font-size: 13px; }
-.member-list { display: grid; gap: 4px; }
-.member-row { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-bottom: 1px solid var(--border); }
-.member-row:last-child { border-bottom: none; }
-.member-avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; }
+.modal h2 {
+  margin: 0;
+}
+.modal label {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.modal label:has(select) {
+  gap: 8px;
+}
+.range-value {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.color-input {
+  width: 44px;
+  height: 34px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  cursor: pointer;
+}
+.input-range {
+  flex: 1;
+}
+.select-font {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+}
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.theme-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.team-hint {
+  margin: 0;
+  font-size: 13px;
+}
+.member-list {
+  display: grid;
+  gap: 4px;
+}
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.member-row:last-child {
+  border-bottom: none;
+}
+.member-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
 .member-avatar-fallback {
   display: inline-flex;
   align-items: center;
@@ -611,9 +1022,21 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
   font-size: 14px;
   font-weight: 600;
 }
-.member-name { display: grid; flex: 1; min-width: 0; font-size: 14px; line-height: 1.3; }
-.member-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.member-email { font-size: 12px; }
+.member-name {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.3;
+}
+.member-name > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.member-email {
+  font-size: 12px;
+}
 .badge {
   font-size: 11px;
   font-weight: 600;
@@ -623,8 +1046,21 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` })
   color: var(--text);
   flex-shrink: 0;
 }
-.badge-admin { background: var(--accent); border-color: var(--accent); color: #fff; }
-.member-add { display: flex; gap: 8px; }
-.member-add .input { flex: 1; }
-.error { color: #c0392b; margin: 0; font-size: 14px; }
+.badge-admin {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.member-add {
+  display: flex;
+  gap: 8px;
+}
+.member-add .input {
+  flex: 1;
+}
+.error {
+  color: #c0392b;
+  margin: 0;
+  font-size: 14px;
+}
 </style>

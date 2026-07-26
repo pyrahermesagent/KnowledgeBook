@@ -1,0 +1,19 @@
+{
+  "name": "knowledgebook-benchmarks",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "latency": "vitest run latency/bench.test.ts --reporter=verbose",
+    "throughput": "vitest run throughput/bench.test.ts --reporter=verbose",
+    "memory": "vitest run memory/bench.test.ts --reporter=verbose",
+    "all": "npm run latency && npm run throughput && npm run memory",
+    "compare": "node compare.mjs"
+  },
+  "dependencies": {
+    "benchmark": "^2.1.4",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "execa": "^9.0.0"
+  }
+}

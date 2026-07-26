@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<space>
+  <key>PROJECT</key>
+  <name>Project Documentation</name>
+  
+  <content>
+    <page>
+      <title>Home</title>
+      <content>
+        <p>Welcome to the project documentation.</p>
+        <ac:structured-macro ac:name="info">
+          <ac:parameter ac:name="title">Welcome</ac:parameter>
+          <ac:plain-text-body><![CDATA[This is the main documentation space.]]></ac:plain-text-body>
+        </ac:structured-macro>
+      </content>
+      <version>
+        <versionNumber>1</versionNumber>
+      </version>
+    </page>
+    
+    <page>
+      <title>API Reference</title>
+      <content>
+        <h1>API Reference</h1>
+        <p>Explore our API endpoints.</p>
+        <ac:structured-macro ac:name="code">
+          <ac:parameter ac:name="language">python</ac:parameter>
+          <ac:plain-text-body><![CDATA[def get_user(id):
+    return User.objects.get(id=id)
+]]></ac:plain-text-body>
+        </ac:structured-macro>
+      </content>
+      <version>
+        <versionNumber>2</versionNumber>
+      </version>
+    </page>
+    
+    <page>
+      <title>Getting Started</title>
+      <content>
+        <h1>Getting Started</h1>
+        <p>Follow these steps to begin.</p>
+        <ol>
+          <li>Install the CLI tool</li>
+          <li>Configure your API key</li>
+          <li>Run your first command</li>
+        </ol>
+      </content>
+      <version>
+        <versionNumber>3</versionNumber>
+      </version>
+    </page>
+  </content>
+</space>

@@ -16,6 +16,7 @@ import {
   X,
   Palette,
 } from '@lucide/vue';
+import { THEME_PRESETS, matchThemePreset } from '~/utils/themePresets';
 
 definePageMeta({ middleware: 'auth' });
 
@@ -203,14 +204,7 @@ const settings = reactive({ name: '', description: '', accentColor: '#346ddb', i
 const savingSettings = ref(false);
 
 const showTheme = ref(false);
-const theme = reactive({
-  accentColor: '#346ddb',
-  fontFamily: '',
-  bgColor: '#ffffff',
-  textColor: '#1f2430',
-  borderColor: '#e5e8ec',
-  radius: 8,
-});
+const selectedPresetId = ref<string | null>(null);
 const savingTheme = ref(false);
 
 function openSettings() {
@@ -222,12 +216,9 @@ function openSettings() {
 }
 
 function openTheme() {
-  theme.accentColor = project.value!.accentColor;
-  theme.fontFamily = project.value!.fontFamily;
-  theme.bgColor = project.value!.bgColor;
-  theme.textColor = project.value!.textColor;
-  theme.borderColor = project.value!.borderColor;
-  theme.radius = project.value!.radius;
+  // Preselect the preset the project already uses; stays empty for themes
+  // hand-tuned before presets existed.
+  selectedPresetId.value = matchThemePreset(project.value!)?.id ?? null;
   showTheme.value = true;
 }
 
@@ -238,9 +229,12 @@ async function uploadIcon(event: Event) {
 }
 
 async function saveTheme() {
+  const preset = THEME_PRESETS.find((p) => p.id === selectedPresetId.value);
+  if (!preset) return;
   savingTheme.value = true;
   try {
-    await $fetch(`/api/projects/${slug}/theme`, { method: 'PATCH', body: { ...theme } });
+    const { id: _id, name: _name, ...fields } = preset;
+    await $fetch(`/api/projects/${slug}/theme`, { method: 'PATCH', body: fields });
     showTheme.value = false;
     await refreshTree();
   } catch (e: any) {
@@ -528,59 +522,40 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` });
 
     <div v-if="showTheme" class="modal-backdrop" @click.self="showTheme = false">
       <div class="modal">
-        <h2>Theme Settings</h2>
-        <label
-          >Accent Color
-          <span class="color-row">
-            <input v-model="theme.accentColor" type="color" class="color-input" />
-            <input v-model="theme.accentColor" class="input" style="max-width: 120px" />
-          </span>
-        </label>
-        <label
-          >Font Family
-          <select v-model="theme.fontFamily" class="input select-font">
-            <option
-              value='-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
-            >
-              System Sans (Default)
-            </option>
-            <option value="Georgia, serif">Georgia (Serif)</option>
-            <option value="'Courier New', Courier, monospace">Courier (Mono)</option>
-            <option value="Arial, sans-serif">Arial</option>
-            <option value="'Times New Roman', Times, serif">Times New Roman</option>
-            <option value="Verdana, sans-serif">Verdana</option>
-            <option value="system-ui, -apple-system, sans-serif">System UI</option>
-          </select>
-        </label>
-        <label
-          >Background Color
-          <span class="color-row">
-            <input v-model="theme.bgColor" type="color" class="color-input" />
-            <input v-model="theme.bgColor" class="input" style="max-width: 120px" />
-          </span>
-        </label>
-        <label
-          >Text Color
-          <span class="color-row">
-            <input v-model="theme.textColor" type="color" class="color-input" />
-            <input v-model="theme.textColor" class="input" style="max-width: 120px" />
-          </span>
-        </label>
-        <label
-          >Border Radius
-          <input
-            type="range"
-            v-model.number="theme.radius"
-            min="0"
-            max="20"
-            class="input input-range"
-          />
-          <span class="range-value">{{ theme.radius }}px</span>
-        </label>
+        <h2>Theme</h2>
+        <p class="muted preset-hint">Pick a preset for your public docs.</p>
+        <div class="preset-grid">
+          <button
+            v-for="preset in THEME_PRESETS"
+            :key="preset.id"
+            type="button"
+            class="preset-card"
+            :class="{ selected: preset.id === selectedPresetId }"
+            :style="{
+              background: preset.bgColor,
+              borderColor: preset.id === selectedPresetId ? preset.accentColor : preset.borderColor,
+              borderRadius: `${Math.max(preset.radius, 2)}px`,
+              fontFamily: preset.fontFamily,
+            }"
+            @click="selectedPresetId = preset.id"
+          >
+            <span class="preset-sample">
+              <span class="preset-aa" :style="{ color: preset.textColor }">Aa</span>
+              <span class="preset-dot" :style="{ background: preset.accentColor }" />
+            </span>
+            <span class="preset-name" :style="{ color: preset.textColorMuted }">
+              {{ preset.name }}
+            </span>
+          </button>
+        </div>
         <div class="modal-actions">
           <span style="flex: 1" />
           <button class="btn" @click="showTheme = false">Cancel</button>
-          <button class="btn btn-primary" :disabled="savingTheme" @click="saveTheme">
+          <button
+            class="btn btn-primary"
+            :disabled="savingTheme || !selectedPresetId"
+            @click="saveTheme"
+          >
             {{ savingTheme ? 'Saving…' : 'Save' }}
           </button>
         </div>
@@ -770,7 +745,16 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` });
   padding: 12px;
   border-top: 1px solid var(--border);
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* Three buttons share the row; tightened padding keeps them inside the
+   280px sidebar instead of overflowing past its border. */
+.sidebar-bottom .btn {
+  flex: 1;
+  justify-content: center;
+  padding: 4px 6px;
+  min-width: 0;
 }
 
 .editor-main {
@@ -948,10 +932,6 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` });
 .modal label:has(select) {
   gap: 8px;
 }
-.range-value {
-  font-size: 13px;
-  color: var(--text-muted);
-}
 .color-row {
   display: flex;
   align-items: center;
@@ -966,28 +946,50 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` });
   background: var(--bg);
   cursor: pointer;
 }
-.input-range {
-  flex: 1;
-}
-.select-font {
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 14px;
-}
 .modal-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
 }
-.theme-modal-actions {
+.preset-hint {
+  margin: 0;
+  font-size: 13px;
+}
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.preset-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px 10px;
+  border: 2px solid;
+  cursor: pointer;
+  text-align: left;
+}
+.preset-card.selected {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.preset-sample {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+.preset-aa {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+}
+.preset-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+.preset-name {
+  font-size: 12px;
+  font-weight: 500;
 }
 .team-hint {
   margin: 0;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BookOpen, Plus, Download, LogOut } from 'lucide-vue-next';
+import { BookOpen, Plus, Download, LogOut } from '@lucide/vue';
 
 definePageMeta({ middleware: 'auth' });
 

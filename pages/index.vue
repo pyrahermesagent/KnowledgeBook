@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BookOpen, PenLine, Zap, Palette } from 'lucide-vue-next';
+import { BookOpen, PenLine, Zap, Palette } from '@lucide/vue';
 
 const { loggedIn, user } = useUserSession();
 const authError = computed(() => Boolean(useRoute().query.auth_error));

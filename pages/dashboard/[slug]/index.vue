@@ -15,7 +15,7 @@ import {
   Menu,
   X,
   Palette,
-} from 'lucide-vue-next';
+} from '@lucide/vue';
 
 definePageMeta({ middleware: 'auth' });
 

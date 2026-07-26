@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, ArrowRight, Pencil, Menu, X } from 'lucide-vue-next';
+import { ArrowLeft, ArrowRight, Pencil, Menu, X } from '@lucide/vue';
 
 const props = defineProps<{ projectSlug: string; pageSlug?: string }>();
 

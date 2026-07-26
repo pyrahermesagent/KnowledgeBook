@@ -147,10 +147,15 @@ select {
   border-radius: 4px;
   padding: 0.1em 0.35em;
 }
+/* Fences nested in a list or blockquote keep this plain rendering; standalone
+   ones are rendered by CodeBlock.vue, which styles its own <pre>. The border
+   matters because the dark theme sets --bg to this same #0d1117, which left
+   code blocks with no visible edge at all. */
 .prose pre {
   background: #0d1117;
   color: #e6edf3;
   padding: 16px;
+  border: 1px solid #30363d;
   border-radius: var(--radius);
   overflow-x: auto;
 }
@@ -197,21 +202,31 @@ select {
   }
 }
 
-/* highlight.js (github-dark-ish, minimal subset) */
+/* highlight.js (github-dark-ish).
+   Kept as a hand-picked subset rather than a vendored hljs theme so it tracks
+   the palette above. Any token class not listed simply inherits the block
+   foreground, which reads as unhighlighted rather than wrong. */
 .hljs-keyword,
 .hljs-selector-tag,
 .hljs-literal,
-.hljs-doctag {
+.hljs-doctag,
+.hljs-name,
+.hljs-tag {
   color: #ff7b72;
 }
 .hljs-string,
 .hljs-attr,
-.hljs-regexp {
+.hljs-regexp,
+.hljs-addition,
+.hljs-selector-attr,
+.hljs-selector-pseudo {
   color: #a5d6ff;
 }
 .hljs-title,
 .hljs-function .hljs-title,
-.hljs-name {
+.hljs-section,
+.hljs-selector-id,
+.hljs-selector-class {
   color: #d2a8ff;
 }
 .hljs-comment,
@@ -220,10 +235,39 @@ select {
 }
 .hljs-number,
 .hljs-built_in,
-.hljs-variable {
+.hljs-variable,
+.hljs-template-variable,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link {
   color: #79c0ff;
 }
 .hljs-type,
-.hljs-class .hljs-title {
+.hljs-class .hljs-title,
+.hljs-params,
+.hljs-property {
   color: #ffa657;
+}
+.hljs-meta,
+.hljs-meta .hljs-keyword {
+  color: #79c0ff;
+}
+/* diff: the whole point of the language is telling these two apart. */
+.hljs-addition {
+  color: #7ee787;
+  background: rgba(46, 160, 67, 0.15);
+  display: inline-block;
+  width: 100%;
+}
+.hljs-deletion {
+  color: #ffa198;
+  background: rgba(248, 81, 73, 0.15);
+  display: inline-block;
+  width: 100%;
+}
+.hljs-emphasis {
+  font-style: italic;
+}
+.hljs-strong {
+  font-weight: 600;
 }

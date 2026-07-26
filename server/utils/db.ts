@@ -205,7 +205,20 @@ function initSchema(db: Database.Database): void {
 
   // Columns added after the initial release. CREATE TABLE IF NOT EXISTS does
   // not touch tables that already exist, so these are applied separately for
-  // databases created before the wallet and encryption features landed.
+  // databases created before the theming, wallet, and encryption features
+  // landed. Definitions must stay in sync with the CREATE TABLE above.
+  ensureColumn(
+    db,
+    'projects',
+    'font_family',
+    `TEXT NOT NULL DEFAULT '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'`
+  );
+  ensureColumn(db, 'projects', 'bg_color', "TEXT NOT NULL DEFAULT '#ffffff'");
+  ensureColumn(db, 'projects', 'bg_subtle', "TEXT NOT NULL DEFAULT '#f7f8fa'");
+  ensureColumn(db, 'projects', 'text_color', "TEXT NOT NULL DEFAULT '#1f2430'");
+  ensureColumn(db, 'projects', 'text-muted', "TEXT NOT NULL DEFAULT '#6b7280'");
+  ensureColumn(db, 'projects', 'border_color', "TEXT NOT NULL DEFAULT '#e5e8ec'");
+  ensureColumn(db, 'projects', 'radius', 'INTEGER NOT NULL DEFAULT 8');
   ensureColumn(db, 'projects', 'owner_wallet_address', 'TEXT');
   ensureColumn(db, 'pages', 'encrypted_content', 'TEXT');
   ensureColumn(db, 'pages', 'encryption_iv', 'TEXT');
@@ -246,7 +259,9 @@ function ensureColumn(
   const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
 
   if (!columns.some((c) => c.name === column)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    // Quoted so names with hyphens ("text-muted") work; PRAGMA table_info
+    // reports names unquoted, so the existence check above stays bare.
+    db.exec(`ALTER TABLE ${table} ADD COLUMN "${column}" ${definition}`);
   }
 }
 

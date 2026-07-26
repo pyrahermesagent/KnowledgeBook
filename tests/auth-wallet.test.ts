@@ -46,6 +46,28 @@ describe('normalizeAddress', () => {
 });
 
 describe('parseLoginMessage', () => {
+  /**
+   * EIP-4361 specifies the address field as EIP-55 checksummed. SIWE clients
+   * that validate the message they are asked to sign reject a lowercased one,
+   * even though this server's own parser and signature check ignore casing.
+   */
+  it('writes an EIP-55 checksummed address into the message', () => {
+    const message = createLoginMessage(ADDRESS, generateNonce());
+    expect(message).toContain(account.address);
+    expect(message).not.toContain(ADDRESS);
+  });
+
+  it('accepts a checksummed address back through the full login path', async () => {
+    const stored: StoredNonce = { value: generateNonce(), issuedAt: Date.now() };
+    const message = createLoginMessage(ADDRESS, stored.value);
+    const signature = await account.signMessage({ message });
+
+    const result = await verifyLoginAttempt(message, signature, stored);
+
+    expect(result.success).toBe(true);
+    expect(result.address).toBe(ADDRESS);
+  });
+
   it('round-trips the fields written by createLoginMessage', () => {
     const nonce = generateNonce();
     const parsed = parseLoginMessage(createLoginMessage(ADDRESS, nonce));

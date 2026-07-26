@@ -232,7 +232,7 @@ async function importMarkdownPipeline(
     RETURNING id
   `
     )
-    .run(options.ownerId, projectSlug, projectName, 'Imported from markdown content') as any;
+    .get(options.ownerId, projectSlug, projectName, 'Imported from markdown content') as any;
 
   // For markdown, create a single section and page
   const sectionInfo = db
@@ -243,7 +243,7 @@ async function importMarkdownPipeline(
     RETURNING id
   `
     )
-    .run(projectId.id, 'Introduction', 0);
+    .get(projectId.id, 'Introduction', 0);
 
   const pageContent = processMarkdownContent(options.content);
 
@@ -281,7 +281,7 @@ async function importHtmlPipeline(
     RETURNING id
   `
     )
-    .run(options.ownerId, projectSlug, projectName, 'Imported from HTML content') as any;
+    .get(options.ownerId, projectSlug, projectName, 'Imported from HTML content') as any;
 
   const sectionInfo = db
     .prepare(
@@ -291,7 +291,7 @@ async function importHtmlPipeline(
     RETURNING id
   `
     )
-    .run(projectId.id, 'Imported Content', 0);
+    .get(projectId.id, 'Imported Content', 0);
 
   const pageContent = processHtmlContent(options.content, options.url);
 
@@ -328,7 +328,7 @@ async function importCsvPipeline(
     RETURNING id
   `
     )
-    .run(options.ownerId, projectSlug, projectName, 'Imported from CSV content') as any;
+    .get(options.ownerId, projectSlug, projectName, 'Imported from CSV content') as any;
 
   const sectionInfo = db
     .prepare(
@@ -338,7 +338,7 @@ async function importCsvPipeline(
     RETURNING id
   `
     )
-    .run(projectId.id, 'Data', 0);
+    .get(projectId.id, 'Data', 0);
 
   const pages = parseCsvToPages(options.content);
 
@@ -385,7 +385,7 @@ async function importConfluencePipeline(
     RETURNING id
   `
     )
-    .run(options.ownerId, projectSlug, projectName, 'Imported from Confluence XML') as any;
+    .get(options.ownerId, projectSlug, projectName, 'Imported from Confluence XML') as any;
 
   const sectionInfo = db
     .prepare(
@@ -395,7 +395,7 @@ async function importConfluencePipeline(
     RETURNING id
   `
     )
-    .run(projectId.id, 'Imported Content', 0);
+    .get(projectId.id, 'Imported Content', 0);
 
   const pages = parseConfluenceXml(options.content);
 
@@ -442,7 +442,7 @@ async function importNotionPipeline(
     RETURNING id
   `
     )
-    .run(options.ownerId, projectSlug, projectName, 'Imported from Notion JSON') as any;
+    .get(options.ownerId, projectSlug, projectName, 'Imported from Notion JSON') as any;
 
   const sectionInfo = db
     .prepare(
@@ -452,7 +452,7 @@ async function importNotionPipeline(
     RETURNING id
   `
     )
-    .run(projectId.id, 'Imported Content', 0);
+    .get(projectId.id, 'Imported Content', 0);
 
   const pages = parseNotionJson(options.content);
 
@@ -498,7 +498,7 @@ async function importPdfPipeline(
     RETURNING id
   `
     )
-    .run(options.ownerId, projectSlug, projectName, 'Imported from PDF') as any;
+    .get(options.ownerId, projectSlug, projectName, 'Imported from PDF') as any;
 
   const sectionInfo = db
     .prepare(
@@ -508,7 +508,7 @@ async function importPdfPipeline(
     RETURNING id
   `
     )
-    .run(projectId.id, 'Imported Content', 0);
+    .get(projectId.id, 'Imported Content', 0);
 
   // For PDF, we'd need a PDF parsing library in a real implementation
   // For now, create a placeholder page
@@ -563,7 +563,7 @@ async function importEpubPipeline(
     RETURNING id
   `
     )
-    .run(options.ownerId, projectSlug, projectName, 'Imported from EPUB') as any;
+    .get(options.ownerId, projectSlug, projectName, 'Imported from EPUB') as any;
 
   const sectionInfo = db
     .prepare(
@@ -573,7 +573,7 @@ async function importEpubPipeline(
     RETURNING id
   `
     )
-    .run(projectId.id, 'Imported Content', 0);
+    .get(projectId.id, 'Imported Content', 0);
 
   // For EPUB, we'd need an EPUB parsing library in a real implementation
   // For now, create a placeholder page

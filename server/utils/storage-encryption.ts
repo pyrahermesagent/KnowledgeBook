@@ -1,6 +1,7 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { encrypt } from '#server/services/encryption';
 import { getEncryptionKey } from '#server/services/encryption';
+import { s3Enabled } from './storage';
 
 // LRU cache for encryption metadata (max 1000 entries)
 const encryptionMetadataCache = new Map<string, { nonce: string; keyId: string }>();
@@ -133,10 +134,8 @@ export function getEncryptionMetadataStats(): { size: number } {
 /**
  * Check if S3 is configured
  */
-export function s3Enabled(): boolean {
-  const cfg = s3Config();
-  return Boolean(cfg.endpoint && cfg.bucket && cfg.accessKey && cfg.secretKey);
-}
+// Defined once in storage.ts — see the note there; a second exported copy is
+// silently dropped from Nitro's auto-import registry.
 
 /**
  * Get public URL for S3 object

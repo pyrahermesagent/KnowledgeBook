@@ -3,6 +3,11 @@
 // Supports: gitbook, markdown, html, csv, confluence, notion, pdf, epub
 
 import { defineEventHandler, readBody } from 'h3';
+// Imported explicitly: `importContent` is exported by both import-unified.ts
+// and import-pipeline.ts, and relying on the auto-import left which one you get
+// down to Nitro's resolution order.
+import { importContent } from '#utils/import-unified';
+import { validateImportRequest } from '#utils/import-pipeline';
 
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event);

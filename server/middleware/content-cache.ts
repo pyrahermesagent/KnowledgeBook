@@ -44,8 +44,11 @@ export default defineEventHandler(async (event: H3Event): Promise<any> | void =>
     return;
   }
 
-  // Check if user is authenticated
-  const user = await useAuth(event).user;
+  // Check if user is authenticated. `getUserSession` is the nuxt-auth-utils
+  // helper the rest of the server uses; `useAuth` does not exist anywhere in
+  // the app, and referencing it here turned every page-view request into a 500.
+  const session = await getUserSession(event);
+  const user = session?.user as { id: number } | undefined;
   if (!user) {
     return;
   }

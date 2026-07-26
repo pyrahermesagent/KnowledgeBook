@@ -11,7 +11,10 @@ export default defineNuxtRouteMiddleware((to) => {
 
   if (!session.value?.wallet) {
     if (to.path.startsWith('/dashboard') || to.path.startsWith('/projects')) {
-      return navigateTo('/dashboard');
+      // Sending an unauthenticated visitor from /dashboard to /dashboard just
+      // re-runs this guard. Home is where the app offers sign-in, and it is
+      // where middleware/auth.ts sends them too.
+      return navigateTo('/');
     }
   }
 });

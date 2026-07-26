@@ -14,7 +14,14 @@ export default defineNuxtConfig({
   modules: ['nuxt-auth-utils'],
   css: ['~/assets/css/main.css'],
   alias,
-  nitro: { alias },
+  nitro: {
+    alias,
+    // Nitro defaults esbuild to es2019, which predates BigInt literals — the
+    // `0n` in server/utils/token-validation.ts made the build warn that it
+    // "may crash at run-time". The Dockerfile runs node:22, so target the
+    // runtime we actually ship on.
+    esbuild: { options: { target: 'es2022' } },
+  },
   runtimeConfig: {
     // Overridable via NUXT_* environment variables (see .env.example)
     databasePath: '.data/knowledgebook.db',

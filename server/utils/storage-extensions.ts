@@ -2,6 +2,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { useRuntimeConfig } from '#imports';
+import { s3Enabled } from './storage';
 
 let s3: S3Client | null = null;
 
@@ -9,10 +10,9 @@ function s3Config() {
   return useRuntimeConfig().s3;
 }
 
-export function s3Enabled(): boolean {
-  const cfg = s3Config();
-  return Boolean(cfg.endpoint && cfg.bucket && cfg.accessKey && cfg.secretKey);
-}
+// Re-exporting this would register a second `s3Enabled` in Nitro's auto-import
+// registry, and whichever copy loses is silently dropped from every server
+// module that relies on the auto-import. storage.ts owns the definition.
 
 function useS3(): S3Client {
   if (s3) return s3;

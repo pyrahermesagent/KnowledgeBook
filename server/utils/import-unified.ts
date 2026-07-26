@@ -72,7 +72,7 @@ async function importMarkdownPipeline(
     RETURNING id
   `
     )
-    .run(options.ownerId, projectSlug, projectName, 'Imported from markdown content') as {
+    .get(options.ownerId, projectSlug, projectName, 'Imported from markdown content') as {
     id: number;
   };
 
@@ -85,7 +85,7 @@ async function importMarkdownPipeline(
     RETURNING id
   `
     )
-    .run(projectId.id, 'Introduction', 0);
+    .get(projectId.id, 'Introduction', 0);
 
   const pageContent = processMarkdownContent(options.content);
 
@@ -105,7 +105,7 @@ async function importMarkdownPipeline(
   };
 }
 
-// HTML import (from网页 content)
+// HTML import (from web page content)
 async function importHtmlPipeline(
   options: ImportOptions & { content: string; url?: string }
 ): Promise<ImportResult> {
@@ -123,7 +123,7 @@ async function importHtmlPipeline(
     RETURNING id
   `
     )
-    .run(options.ownerId, projectSlug, projectName, 'Imported from HTML content') as { id: number };
+    .get(options.ownerId, projectSlug, projectName, 'Imported from HTML content') as { id: number };
 
   const sectionInfo = db
     .prepare(
@@ -133,7 +133,7 @@ async function importHtmlPipeline(
     RETURNING id
   `
     )
-    .run(projectId.id, 'Imported Content', 0);
+    .get(projectId.id, 'Imported Content', 0);
 
   const pageContent = processHtmlContent(options.content, options.url);
 
@@ -170,7 +170,7 @@ async function importCsvPipeline(
     RETURNING id
   `
     )
-    .run(options.ownerId, projectSlug, projectName, 'Imported from CSV content') as { id: number };
+    .get(options.ownerId, projectSlug, projectName, 'Imported from CSV content') as { id: number };
 
   const sectionInfo = db
     .prepare(
@@ -180,7 +180,7 @@ async function importCsvPipeline(
     RETURNING id
   `
     )
-    .run(projectId.id, 'Data', 0);
+    .get(projectId.id, 'Data', 0);
 
   const pages = parseCsvToPages(options.content);
 
@@ -297,11 +297,16 @@ export async function importContent(
     throw createError({ statusCode: 400, message: 'Content or URL is required for import' });
   }
 
-  // Determine format
-  let format: 'gitbook' | 'markdown' | 'html' | 'csv' = 'auto';
+  // Determine format. The API and validateImportRequest both call this field
+  // `format`; reading only `type` meant an explicitly chosen format was
+  // discarded and auto-detection always won — markdown containing "## " then
+  // detected as GitBook and failed with "URL is required for GitBook import".
+  // `type` stays supported for callers that already send it.
+  const requested = options.format ?? type;
+  let format: 'auto' | 'gitbook' | 'markdown' | 'html' | 'csv' = 'auto';
 
-  if (type && type !== 'auto') {
-    format = type;
+  if (requested && requested !== 'auto') {
+    format = requested as 'gitbook' | 'markdown' | 'html' | 'csv';
   } else if (content) {
     format = detectFormat(content, url);
   } else {

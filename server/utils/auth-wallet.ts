@@ -101,7 +101,14 @@ export function createLoginMessage(address: string, nonce: string): string {
   const statement = 'Please sign this message to confirm your identity.';
   const issuedAt = new Date().toISOString();
 
-  return `${domain} wants you to sign in with your Ethereum account:\n\n${address}\n\n${statement}\nURI: ${uri}\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${issuedAt}`;
+  // EIP-4361 requires the address field to be EIP-55 checksummed, and SIWE
+  // clients that validate the message reject a lowercased one. Callers hand us
+  // the normalized (lowercase) form used for storage and comparison, so
+  // checksum it here for the message only — parseLoginMessage and the signature
+  // check are both case-insensitive.
+  const checksummed = getAddress(address);
+
+  return `${domain} wants you to sign in with your Ethereum account:\n\n${checksummed}\n\n${statement}\nURI: ${uri}\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${issuedAt}`;
 }
 
 /**

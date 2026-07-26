@@ -30,6 +30,26 @@ interface SectionRow {
   position: number;
 }
 
+// SQLite requires the ESCAPE argument to be exactly one character, and rejects
+// anything else with "ESCAPE expression must be a single character". It checks
+// this while evaluating the LIKE, not while preparing the statement, so a bad
+// escape looks fine until the query actually matches a row — which is why
+// search only failed once an instance had content in it.
+//
+// This is a plain string, not a template literal: "\\" is one backslash, which
+// is what the pattern builder below prefixes wildcards with.
+const LIKE_ESCAPE_SQL = "ESCAPE '\\'";
+
+/** LIKE conditions shared by the search tools. Exported for tests. */
+export function searchLikeCondition(): string {
+  return `(pg.title LIKE ? ${LIKE_ESCAPE_SQL} OR pg.content LIKE ? ${LIKE_ESCAPE_SQL})`;
+}
+
+/** Wraps a search term in wildcards, escaping any the user typed. Exported for tests. */
+export function buildSearchPattern(needle: string): string {
+  return `%${needle.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+}
+
 function text(value: string) {
   return { content: [{ type: 'text' as const, text: value }] };
 }
@@ -501,7 +521,7 @@ function registerSearchAndSummarizeTool(server: McpServer) {
       const needle = query.trim();
       if (!needle) return errorText('Provide a non-empty search query.');
 
-      const pattern = `%${needle.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      const pattern = buildSearchPattern(needle);
       const projectFilter = project?.trim();
 
       const rows = db
@@ -510,7 +530,7 @@ function registerSearchAndSummarizeTool(server: McpServer) {
         SELECT p.slug AS project, pg.slug AS page, pg.title, pg.content
         FROM pages pg JOIN projects p ON p.id = pg.project_id
         WHERE ${projectFilter ? 'p.slug = ? AND' : ''}
-          (pg.title LIKE ? ESCAPE '\\\\' OR pg.content LIKE ? ESCAPE '\\\\')
+          ${searchLikeCondition()}
         ORDER BY p.slug, pg.slug LIMIT ?
       `
         )
@@ -687,7 +707,7 @@ function buildMcpServer(): McpServer {
     async ({ query, project }) => {
       const needle = query.trim();
       if (!needle) return errorText('Provide a non-empty search query.');
-      const pattern = `%${needle.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      const pattern = buildSearchPattern(needle);
       const projectFilter = project?.trim();
       const rows = db
         .prepare(
@@ -695,7 +715,7 @@ function buildMcpServer(): McpServer {
       SELECT p.slug AS project, pg.slug AS page, pg.title, pg.content
       FROM pages pg JOIN projects p ON p.id = pg.project_id
       WHERE ${projectFilter ? 'p.slug = ? AND' : ''}
-        (pg.title LIKE ? ESCAPE '\\\\' OR pg.content LIKE ? ESCAPE '\\\\')
+        ${searchLikeCondition()}
       ORDER BY p.slug, pg.slug LIMIT ${MAX_SEARCH_RESULTS + 1}
     `
         )

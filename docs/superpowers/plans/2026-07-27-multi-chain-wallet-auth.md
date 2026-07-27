@@ -2554,25 +2554,101 @@ export default defineEventHandler(async (event) => {
 
 - [ ] **Step 5: Update the member management endpoints**
 
-Replace the body of `server/api/projects/[slug]/members/index.get.ts`:
+`server/api/projects/[slug]/members/index.get.ts` keeps its existing
+`{ admin, members }` response shape and its `requireProjectAccess` guard. The
+dashboard Team panel (`pages/dashboard/[slug]/index.vue`) binds directly to
+`team.admin.avatar` and `team.members[].pending`, so returning a bare array
+would break that panel at runtime, and switching to `requireProjectAdmin` would
+stop non-admin members from seeing the roster they can see today.
+
+What changes is only that wallet invites now appear alongside email invites, and
+that account info is joined through `user_identities` rather than by email
+string:
 
 ```ts
+// Team roster: the admin (project owner) first, then invited members.
 export default defineEventHandler(async (event) => {
-  const { project } = await requireProjectAdmin(event);
+  const { project } = await requireProjectAccess(event);
+  const db = useDb();
 
-  return useDb()
+  const admin = db
+    .prepare('SELECT email, name, avatar FROM users WHERE id = ?')
+    .get(project.owner_id) as { email: string | null; name: string; avatar: string } | undefined;
+
+  // A member may not have signed in yet — join their account when one exists.
+  // Email invites match on users.email; wallet invites match through the
+  // identity table, so a member who signed in with a wallet still resolves.
+  const members = db
     .prepare(
-      'SELECT id, kind, identifier, role, added_at FROM project_members WHERE project_id = ? ORDER BY added_at'
+      `
+    SELECT m.id, m.kind, m.identifier, m.added_at, u.name, u.avatar
+    FROM project_members m
+    LEFT JOIN users u ON u.id = (
+      CASE WHEN m.kind = 'email'
+        THEN (SELECT id FROM users WHERE lower(email) = m.identifier)
+        ELSE (SELECT user_id FROM user_identities i
+              WHERE i.provider = m.kind AND i.subject = m.identifier)
+      END
+    )
+    WHERE m.project_id = ?
+    ORDER BY m.added_at, m.id
+  `
     )
     .all(project.id) as {
     id: number;
     kind: string;
     identifier: string;
-    role: string;
     added_at: string;
+    name: string | null;
+    avatar: string | null;
   }[];
+
+  return {
+    admin: {
+      email: admin?.email ?? '',
+      name: admin?.name ?? '',
+      avatar: admin?.avatar ?? '',
+      role: 'admin',
+    },
+    members: members.map((m) => ({
+      id: m.id,
+      kind: m.kind,
+      // `email` is retained for the email case so the existing panel keeps
+      // working; wallet rows put the address here for display.
+      email: m.identifier,
+      identifier: m.identifier,
+      name: m.name ?? '',
+      avatar: m.avatar ?? '',
+      pending: m.name === null,
+      role: 'member',
+    })),
+  };
 });
 ```
+
+Then teach the panel to render a wallet row. In `pages/dashboard/[slug]/index.vue`,
+add `kind: string;` and `identifier: string;` to the `TeamMember` interface, and
+in the member row replace the bare `member.email` display with a label that
+shortens an address:
+
+```ts
+const KIND_LABELS: Record<string, string> = {
+  email: '',
+  eip155: 'Ethereum',
+  solana: 'Solana',
+  polkadot: 'Polkadot',
+};
+
+/** Emails render in full; addresses are unreadable at full length. */
+function memberLabel(member: TeamMember): string {
+  if (member.kind === 'email') return member.email;
+  const a = member.identifier;
+  const short = a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a;
+  return `${KIND_LABELS[member.kind] ?? member.kind} ${short}`;
+}
+```
+
+and use `memberLabel(member)` everywhere the row currently shows `member.email`.
 
 Replace the body of `server/api/projects/[slug]/members/index.post.ts`:
 

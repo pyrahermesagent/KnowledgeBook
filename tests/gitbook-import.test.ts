@@ -205,11 +205,7 @@ describe('GitBook import (llms.txt site)', () => {
 
   beforeEach(() => {
     db = createTestDb();
-    db.prepare('INSERT INTO users (google_id, email, name) VALUES (?, ?, ?)').run(
-      'g-1',
-      'owner@test.dev',
-      'Owner'
-    );
+    db.prepare('INSERT INTO users (email, name) VALUES (?, ?)').run('owner@test.dev', 'Owner');
     routes.clear();
     fetchedUrls.length = 0;
     storedAssets = [];
@@ -331,11 +327,7 @@ describe('GitBook import (sitemap-only site)', () => {
 
   beforeEach(() => {
     db = createTestDb();
-    db.prepare('INSERT INTO users (google_id, email, name) VALUES (?, ?, ?)').run(
-      'g-1',
-      'owner@test.dev',
-      'Owner'
-    );
+    db.prepare('INSERT INTO users (email, name) VALUES (?, ?)').run('owner@test.dev', 'Owner');
     routes.clear();
     fetchedUrls.length = 0;
     storedAssets = [];

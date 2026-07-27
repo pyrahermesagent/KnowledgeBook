@@ -48,6 +48,35 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 2,
+    name: 'rebuild users without google_id and with nullable email',
+    up: (db) => {
+      const cols = (db.prepare('PRAGMA table_info(users)').all() as { name: string }[]).map(
+        (c) => c.name
+      );
+      if (!cols.includes('google_id')) return; // already rebuilt
+
+      // foreign_keys is a connection pragma and cannot be changed inside a
+      // transaction, so the caller's transaction is paused around the rebuild.
+      // legacy_alter_table keeps ALTER TABLE ... RENAME from rewriting the
+      // references in other tables' FK clauses.
+      db.exec(`
+        CREATE TABLE users_new (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          email      TEXT,
+          name       TEXT NOT NULL DEFAULT '',
+          avatar     TEXT NOT NULL DEFAULT '',
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT INTO users_new (id, email, name, avatar, created_at)
+          SELECT id, email, name, avatar, created_at FROM users;
+        DROP TABLE users;
+        ALTER TABLE users_new RENAME TO users;
+        CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
+      `);
+    },
+  },
 ];
 
 /**
@@ -70,16 +99,23 @@ export function runMigrations(db: Database.Database): void {
     )
   );
 
-  for (const migration of MIGRATIONS) {
-    if (applied.has(migration.version)) continue;
+  const fkWasOn = (db.pragma('foreign_keys', { simple: true }) as number) === 1;
+  if (fkWasOn) db.pragma('foreign_keys = OFF');
 
-    const run = db.transaction(() => {
-      migration.up(db);
-      db.prepare('INSERT INTO schema_version (version, name) VALUES (?, ?)').run(
-        migration.version,
-        migration.name
-      );
-    });
-    run();
+  try {
+    for (const migration of MIGRATIONS) {
+      if (applied.has(migration.version)) continue;
+
+      const run = db.transaction(() => {
+        migration.up(db);
+        db.prepare('INSERT INTO schema_version (version, name) VALUES (?, ?)').run(
+          migration.version,
+          migration.name
+        );
+      });
+      run();
+    }
+  } finally {
+    if (fkWasOn) db.pragma('foreign_keys = ON');
   }
 }

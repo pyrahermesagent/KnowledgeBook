@@ -136,3 +136,38 @@ describe('user_identities migration', () => {
     expect(count.n).toBe(2);
   });
 });
+
+describe('users table rebuild', () => {
+  it('drops google_id and makes email nullable while preserving ids', () => {
+    setRuntimeConfig({ databasePath: createPreMigrationDb() });
+    const db = useDb();
+
+    const cols = db.prepare('PRAGMA table_info(users)').all() as {
+      name: string;
+      notnull: number;
+    }[];
+    expect(cols.map((c) => c.name)).not.toContain('google_id');
+    expect(cols.find((c) => c.name === 'email')!.notnull).toBe(0);
+
+    // Ids must survive: projects.owner_id points at them.
+    const alice = db.prepare('SELECT id, email FROM users WHERE id = 1').get() as {
+      id: number;
+      email: string;
+    };
+    expect(alice.email).toBe('alice@corp.com');
+
+    const project = db.prepare('SELECT owner_id FROM projects WHERE id = 10').get() as {
+      owner_id: number;
+    };
+    expect(project.owner_id).toBe(1);
+  });
+
+  it('allows an emailless user once rebuilt', () => {
+    setRuntimeConfig({ databasePath: createPreMigrationDb() });
+    const db = useDb();
+
+    expect(() =>
+      db.prepare("INSERT INTO users (name, avatar) VALUES ('Wallet person', '')").run()
+    ).not.toThrow();
+  });
+});

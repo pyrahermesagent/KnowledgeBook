@@ -18,7 +18,7 @@ const PROJECT_ID = 1;
 function seedProject() {
   const db = createTestDb();
   clearKeyCache();
-  db.prepare("INSERT INTO users (google_id, email) VALUES ('g1', 'a@b.c')").run();
+  db.prepare("INSERT INTO users (email) VALUES ('a@b.c')").run();
   db.prepare("INSERT INTO projects (owner_id, slug, name) VALUES (1, 'p1', 'P1')").run();
   return db;
 }

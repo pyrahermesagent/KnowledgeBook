@@ -40,7 +40,7 @@ function mockChain(opts: { owner?: string; balance?: bigint } = {}) {
 
 function seedProjects(count = 2) {
   const db = createTestDb();
-  db.prepare("INSERT INTO users (google_id, email) VALUES ('g1', 'a@b.c')").run();
+  db.prepare("INSERT INTO users (email) VALUES ('a@b.c')").run();
   for (let i = 1; i <= count; i++) {
     db.prepare('INSERT INTO projects (owner_id, slug, name) VALUES (1, ?, ?)').run(
       `p${i}`,
@@ -184,7 +184,7 @@ describe('NFT project ownership', () => {
 
   it('upserts rather than duplicating on re-registration', async () => {
     const db = createTestDb();
-    db.prepare("INSERT INTO users (google_id, email) VALUES ('g1', 'a@b.c')").run();
+    db.prepare("INSERT INTO users (email) VALUES ('a@b.c')").run();
     db.prepare("INSERT INTO projects (owner_id, slug, name) VALUES (1, 'p1', 'P1')").run();
 
     addNftProjectOwnership(1, CONTRACT, 7, 'ethereum', OWNER);
@@ -211,7 +211,7 @@ describe('NFT project ownership', () => {
 
     it('moves the project and the ownership record together', async () => {
       const db = createTestDb();
-      db.prepare("INSERT INTO users (google_id, email) VALUES ('g1', 'a@b.c')").run();
+      db.prepare("INSERT INTO users (email) VALUES ('a@b.c')").run();
       db.prepare("INSERT INTO projects (owner_id, slug, name) VALUES (1, 'p1', 'P1')").run();
       addNftProjectOwnership(1, CONTRACT, 7, 'ethereum', OWNER);
       mockChain({ owner: OWNER });
@@ -233,7 +233,7 @@ describe('NFT project ownership', () => {
 
     it('creates a wallet record for the recipient', async () => {
       const db = createTestDb();
-      db.prepare("INSERT INTO users (google_id, email) VALUES ('g1', 'a@b.c')").run();
+      db.prepare("INSERT INTO users (email) VALUES ('a@b.c')").run();
       db.prepare("INSERT INTO projects (owner_id, slug, name) VALUES (1, 'p1', 'P1')").run();
       addNftProjectOwnership(1, CONTRACT, 7, 'ethereum', OWNER);
       mockChain({ owner: OWNER });

@@ -244,7 +244,7 @@ describe('wallet persistence', () => {
 
   it('matches membership regardless of address casing', () => {
     const db = createTestDb();
-    db.prepare("INSERT INTO users (google_id, email) VALUES ('g1', 'a@b.c')").run();
+    db.prepare("INSERT INTO users (email) VALUES ('a@b.c')").run();
     db.prepare("INSERT INTO projects (owner_id, slug, name) VALUES (1, 'p', 'P')").run();
     db.prepare('INSERT INTO wallet_project_members (project_id, wallet_address) VALUES (?, ?)').run(
       1,

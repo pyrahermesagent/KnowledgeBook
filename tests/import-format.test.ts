@@ -13,11 +13,7 @@ describe('importContent format selection', () => {
 
   beforeEach(() => {
     db = createTestDb();
-    db.prepare(`INSERT INTO users (google_id, email, name) VALUES (?, ?, ?)`).run(
-      'g-1',
-      'owner@test.dev',
-      'Owner'
-    );
+    db.prepare(`INSERT INTO users (email, name) VALUES (?, ?)`).run('owner@test.dev', 'Owner');
   });
 
   afterAll(() => {

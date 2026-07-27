@@ -2,21 +2,44 @@ export default defineOAuthGoogleEventHandler({
   async onSuccess(event, { user }) {
     try {
       const db = useDb();
-      db.prepare(
-        `
-        INSERT INTO users (google_id, email, name, avatar)
-        VALUES (@sub, @email, @name, @picture)
-        ON CONFLICT (google_id) DO UPDATE SET email = @email, name = @name, avatar = @picture
-      `
-      ).run({
-        sub: String(user.sub),
-        email: user.email ?? '',
-        name: user.name ?? '',
-        picture: user.picture ?? '',
+      const sub = String(user.sub);
+
+      const upsert = db.transaction(() => {
+        const identity = db
+          .prepare("SELECT user_id FROM user_identities WHERE provider = 'google' AND subject = ?")
+          .get(sub) as { user_id: number } | undefined;
+
+        if (identity) {
+          db.prepare('UPDATE users SET email = ?, name = ?, avatar = ? WHERE id = ?').run(
+            user.email ?? null,
+            user.name ?? '',
+            user.picture ?? '',
+            identity.user_id
+          );
+          db.prepare(
+            "UPDATE user_identities SET last_used_at = datetime('now') WHERE provider = 'google' AND subject = ?"
+          ).run(sub);
+          return identity.user_id;
+        }
+
+        const { id } = db
+          .prepare('INSERT INTO users (email, name, avatar) VALUES (?, ?, ?) RETURNING id')
+          .get(user.email ?? null, user.name ?? '', user.picture ?? '') as { id: number };
+
+        db.prepare(
+          `INSERT INTO user_identities (user_id, provider, subject, last_used_at)
+           VALUES (?, 'google', ?, datetime('now'))`
+        ).run(id, sub);
+
+        return id;
       });
+
+      const userId = upsert();
+
       const row = db
-        .prepare('SELECT id, email, name, avatar FROM users WHERE google_id = ?')
-        .get(String(user.sub)) as { id: number; email: string; name: string; avatar: string };
+        .prepare('SELECT id, email, name, avatar FROM users WHERE id = ?')
+        .get(userId) as { id: number; email: string | null; name: string; avatar: string };
+
       await setUserSession(event, { user: row });
     } catch (error) {
       console.error('Google OAuth callback failed after token exchange:', error);

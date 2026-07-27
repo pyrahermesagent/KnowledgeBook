@@ -87,8 +87,7 @@ function initSchema(db: Database.Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
-      google_id  TEXT NOT NULL UNIQUE,
-      email      TEXT NOT NULL,
+      email      TEXT,
       name       TEXT NOT NULL DEFAULT '',
       avatar     TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))

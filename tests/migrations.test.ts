@@ -61,13 +61,18 @@ function createPreMigrationDb(): string {
       UNIQUE (project_id, wallet_address)
     );
 
+    -- Ids are deliberately non-sequential (1, 5): a rebuild that forgot to
+    -- copy id explicitly and instead let AUTOINCREMENT renumber rows in scan
+    -- order would produce (1, 2) here, which would coincidentally still pass
+    -- an assertion pinned to id 1 alone. Bob at id 5 catches that bug.
     INSERT INTO users (id, google_id, email, name) VALUES
       (1, 'google-sub-alice', 'alice@corp.com', 'Alice'),
-      (2, 'google-sub-bob',   'bob@corp.com',   'Bob');
+      (5, 'google-sub-bob',   'bob@corp.com',   'Bob');
     INSERT INTO wallet_users (id, wallet_address, chain_id) VALUES
       (1, '0x1111111111111111111111111111111111111111', 1);
     INSERT INTO projects (id, owner_id, slug, name) VALUES
-      (10, 1, 'alice-docs', 'Alice Docs');
+      (10, 1, 'alice-docs', 'Alice Docs'),
+      (11, 5, 'bob-docs',   'Bob Docs');
     INSERT INTO project_members (project_id, email) VALUES (10, 'bob@corp.com');
     INSERT INTO wallet_project_members (project_id, wallet_address) VALUES
       (10, '0x1111111111111111111111111111111111111111');
@@ -101,7 +106,7 @@ describe('user_identities migration', () => {
 
     expect(rows).toEqual([
       { user_id: 1, subject: 'google-sub-alice' },
-      { user_id: 2, subject: 'google-sub-bob' },
+      { user_id: 5, subject: 'google-sub-bob' },
     ]);
   });
 
@@ -116,7 +121,7 @@ describe('user_identities migration', () => {
     expect(() =>
       db
         .prepare(
-          "INSERT INTO user_identities (user_id, provider, subject) VALUES (2, 'eip155', '0xaaa')"
+          "INSERT INTO user_identities (user_id, provider, subject) VALUES (5, 'eip155', '0xaaa')"
         )
         .run()
     ).toThrow(/UNIQUE/i);
@@ -149,17 +154,35 @@ describe('users table rebuild', () => {
     expect(cols.map((c) => c.name)).not.toContain('google_id');
     expect(cols.find((c) => c.name === 'email')!.notnull).toBe(0);
 
-    // Ids must survive: projects.owner_id points at them.
+    // Ids must survive: projects.owner_id points at them. The fixture seeds
+    // non-sequential ids (1, 5) specifically so a rebuild that renumbers via
+    // AUTOINCREMENT instead of copying id explicitly cannot pass this by
+    // coincidentally landing user 1 on row 1 while silently shifting user 5.
     const alice = db.prepare('SELECT id, email FROM users WHERE id = 1').get() as {
       id: number;
       email: string;
     };
     expect(alice.email).toBe('alice@corp.com');
 
-    const project = db.prepare('SELECT owner_id FROM projects WHERE id = 10').get() as {
+    const bob = db.prepare('SELECT id, email FROM users WHERE id = 5').get() as
+      { id: number; email: string } | undefined;
+    expect(bob?.email).toBe('bob@corp.com');
+
+    const aliceProject = db.prepare('SELECT owner_id FROM projects WHERE id = 10').get() as {
       owner_id: number;
     };
-    expect(project.owner_id).toBe(1);
+    expect(aliceProject.owner_id).toBe(1);
+
+    // Bob's project must still resolve to Bob by identity, not just by
+    // whatever numeric id happens to occupy that slot after the rebuild.
+    const bobProject = db.prepare('SELECT owner_id FROM projects WHERE id = 11').get() as {
+      owner_id: number;
+    };
+    expect(bobProject.owner_id).toBe(5);
+
+    const bobOwner = db.prepare('SELECT email FROM users WHERE id = ?').get(bobProject.owner_id) as
+      { email: string } | undefined;
+    expect(bobOwner?.email).toBe('bob@corp.com');
   });
 
   it('allows an emailless user once rebuilt', () => {

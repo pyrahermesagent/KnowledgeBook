@@ -3,10 +3,17 @@ import { describe, it, expect } from 'vitest';
 import { privateKeyToAccount } from 'viem/accounts';
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { base58 } from '@scure/base';
+import {
+  cryptoWaitReady,
+  sr25519PairFromSeed,
+  sr25519Sign,
+  encodeAddress,
+} from '@polkadot/util-crypto';
+import { u8aToHex } from '@polkadot/util';
 import { generateNonce, verifyLoginAttempt, getAuthConfig } from '#utils/auth/verify';
 import { getAdapter } from '#utils/auth/chains';
 import { NONCE_TTL_MS, type StoredNonce } from '#utils/auth/types';
-import { setRuntimeConfig } from './setup/nuxt-globals';
+import { setRuntimeConfig, TestHttpError } from './setup/nuxt-globals';
 
 const PRIVATE_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
 const account = privateKeyToAccount(PRIVATE_KEY);
@@ -47,6 +54,23 @@ describe('generateNonce', () => {
 
   it('does not repeat', () => {
     expect(new Set(Array.from({ length: 100 }, generateNonce)).size).toBe(100);
+  });
+});
+
+describe('getAdapter', () => {
+  it('throws a 400 for an unsupported provider', () => {
+    // A registry mis-wiring (e.g. a swapped adapter, or a lookup that returns
+    // undefined) would not be caught by asserting only that *something*
+    // throws — assert the actual status code createError was given.
+    let caught: unknown;
+    try {
+      getAdapter('bogus');
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(TestHttpError);
+    expect((caught as TestHttpError).statusCode).toBe(400);
   });
 });
 
@@ -163,7 +187,12 @@ describe('verifyLoginAttempt', () => {
     const result = await verifyLoginAttempt('eip155', message, signature, challenge);
 
     expect(result.success).toBe(false);
-    expect(result.reason).toMatch(/different (ecosystem|account)/i);
+    // Narrow on purpose: this fixture's provider differs (solana vs eip155), so
+    // the provider check at verify.ts must be the one that fires. A broader
+    // regex here would also accept the reason produced by the address check
+    // further down, letting this test stay green even if the provider check
+    // were deleted (the address-format mismatch alone would still reject it).
+    expect(result.reason).toMatch(/different ecosystem/i);
   });
 
   it('rejects cross-provider replay even when the address strings happen to coincide', async () => {
@@ -193,7 +222,9 @@ describe('verifyLoginAttempt', () => {
     const result = await verifyLoginAttempt('eip155', message, signature, challenge);
 
     expect(result.success).toBe(false);
-    expect(result.reason).toMatch(/different (ecosystem|account)/i);
+    // Narrow on purpose: this fixture's provider matches (eip155 both sides),
+    // so the provider check passes and only the address check can fire.
+    expect(result.reason).toMatch(/different account/i);
   });
 
   it('rejects a bad signature', async () => {
@@ -284,5 +315,32 @@ describe('verifyLoginAttempt', () => {
 
     expect(result.success).toBe(true);
     expect(result.address).toBe(SOL_ADDRESS);
+  });
+
+  it('verifies a Polkadot attempt through the same core', async () => {
+    // Exercises the registry end to end for the third ecosystem too: nothing
+    // in tests/ elsewhere calls getAdapter('polkadot'), so without this a
+    // registry mis-wiring (e.g. polkadot mapped to the wrong adapter) would
+    // pass the full suite.
+    setRuntimeConfig({ web3: { evmChainIds: '1', appDomain: DOMAIN, appUri: URI } });
+    await cryptoWaitReady();
+    const seed = new Uint8Array(32).fill(9);
+    const pair = sr25519PairFromSeed(seed);
+    const dotAddress = encodeAddress(pair.publicKey, 42);
+
+    const challenge = stored({ provider: 'polkadot', address: dotAddress });
+    const message = getAdapter('polkadot').buildMessage({
+      address: dotAddress,
+      nonce: challenge.value,
+      issuedAt: new Date().toISOString(),
+      domain: DOMAIN,
+      uri: URI,
+    });
+    const signature = u8aToHex(sr25519Sign(new TextEncoder().encode(message), pair));
+
+    const result = await verifyLoginAttempt('polkadot', message, signature, challenge);
+
+    expect(result.success).toBe(true);
+    expect(result.address).toBe(dotAddress);
   });
 });

@@ -625,27 +625,52 @@ In `server/utils/db.ts`, replace the `users` CREATE TABLE inside `initSchema` wi
 
 Replace the body of `server/api/auth/google.get.ts`:
 
-```ts
-import { resolveIdentity } from '#utils/auth/identities';
+The old handler wrote `users (google_id, ...)`, and that column no longer exists,
+so it must be rewritten in the same task that removes it. `resolveIdentity` does
+not exist until Task 9, so this writes the two tables directly for now; Task 9
+Step 5 replaces this body with a `resolveIdentity` call once that function
+exists. Every task must leave a repo that type-checks.
 
+```ts
 export default defineOAuthGoogleEventHandler({
   async onSuccess(event, { user }) {
     try {
-      const session = await getUserSession(event);
-      const currentUserId = (session.user as { id: number } | undefined)?.id ?? null;
+      const db = useDb();
+      const sub = String(user.sub);
 
-      const { userId } = resolveIdentity(
-        {
-          provider: 'google',
-          subject: String(user.sub),
-          displayName: user.name ?? '',
-          email: user.email ?? null,
-          avatar: user.picture ?? '',
-        },
-        currentUserId
-      );
+      const upsert = db.transaction(() => {
+        const identity = db
+          .prepare("SELECT user_id FROM user_identities WHERE provider = 'google' AND subject = ?")
+          .get(sub) as { user_id: number } | undefined;
 
-      const row = useDb()
+        if (identity) {
+          db.prepare('UPDATE users SET email = ?, name = ?, avatar = ? WHERE id = ?').run(
+            user.email ?? null,
+            user.name ?? '',
+            user.picture ?? '',
+            identity.user_id
+          );
+          db.prepare(
+            "UPDATE user_identities SET last_used_at = datetime('now') WHERE provider = 'google' AND subject = ?"
+          ).run(sub);
+          return identity.user_id;
+        }
+
+        const { id } = db
+          .prepare('INSERT INTO users (email, name, avatar) VALUES (?, ?, ?) RETURNING id')
+          .get(user.email ?? null, user.name ?? '', user.picture ?? '') as { id: number };
+
+        db.prepare(
+          `INSERT INTO user_identities (user_id, provider, subject, last_used_at)
+           VALUES (?, 'google', ?, datetime('now'))`
+        ).run(id, sub);
+
+        return id;
+      });
+
+      const userId = upsert();
+
+      const row = db
         .prepare('SELECT id, email, name, avatar FROM users WHERE id = ?')
         .get(userId) as { id: number; email: string | null; name: string; avatar: string };
 
@@ -662,8 +687,6 @@ export default defineOAuthGoogleEventHandler({
   },
 });
 ```
-
-`resolveIdentity` lands in Task 9. Until then this file will not type-check; that is expected and is resolved there.
 
 - [ ] **Step 7: Run the migration tests to verify they pass**
 
@@ -1918,13 +1941,18 @@ export async function verifyLoginAttempt(
 Run: `npx vitest run tests/auth-verify.test.ts`
 Expected: PASS — all fifteen cases.
 
-- [ ] **Step 6: Delete the superseded module and its test**
+- [ ] **Step 6: Delete only the superseded test**
 
 ```bash
-git rm server/utils/auth-wallet.ts tests/auth-wallet.test.ts
+git rm tests/auth-wallet.test.ts
 ```
 
-Its coverage now lives in `tests/auth-chain-eip155.test.ts` and `tests/auth-verify.test.ts`. The remaining consumers (`server/api/auth/wallet/*`, `server/utils/nft-ownership.ts`) are updated in Tasks 10 and 11.
+Its coverage now lives in `tests/auth-chain-eip155.test.ts` and `tests/auth-verify.test.ts`.
+
+**Leave `server/utils/auth-wallet.ts` in place.** Three endpoints under
+`server/api/auth/wallet/` still import it, and they are not rewritten until Task
+11 — deleting the module here would break the build for three tasks. Task 11
+Step 3 removes it in the same commit that removes its last importer.
 
 - [ ] **Step 7: Commit**
 
@@ -2234,10 +2262,53 @@ export function unlinkIdentity(userId: number, identityId: number): void {
 Run: `npx vitest run tests/auth-identities.test.ts`
 Expected: PASS — all ten cases.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Refactor Google sign-in onto `resolveIdentity`**
+
+Task 3 gave `server/api/auth/google.get.ts` an inline transaction because
+`resolveIdentity` did not exist yet. It does now, and it is the single place
+account creation and linking belong. Replace the whole `try` block body — from
+`const db = useDb();` through the `setUserSession` call — with:
+
+```ts
+const session = await getUserSession(event);
+const currentUserId = (session.user as { id: number } | undefined)?.id ?? null;
+
+const { userId } = resolveIdentity(
+  {
+    provider: 'google',
+    subject: String(user.sub),
+    displayName: user.name ?? '',
+    email: user.email ?? null,
+    avatar: user.picture ?? '',
+  },
+  currentUserId
+);
+
+const row = useDb()
+  .prepare('SELECT id, email, name, avatar FROM users WHERE id = ?')
+  .get(userId) as { id: number; email: string | null; name: string; avatar: string };
+
+await setUserSession(event, { user: row });
+```
+
+and add the import at the top of the file:
+
+```ts
+import { resolveIdentity } from '#utils/auth/identities';
+```
+
+Signing in with Google while already signed in with a wallet now links the two,
+which is the behavior the account page in Task 16 depends on.
+
+- [ ] **Step 6: Verify the build is still green**
+
+Run: `npm run typecheck`
+Expected: no errors.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add server/utils/auth/identities.ts tests/auth-identities.test.ts
+git add server/utils/auth/identities.ts server/api/auth/google.get.ts tests/auth-identities.test.ts
 git commit -m "feat(auth): add identity resolution with account linking"
 ```
 
@@ -2719,9 +2790,15 @@ export default defineEventHandler(async (event) => {
 
 ```bash
 git rm server/api/auth/wallet/get-nonce.post.ts server/api/auth/wallet/logout.post.ts
+git rm server/utils/auth-wallet.ts
 ```
 
-`server/api/auth/logout.post.ts` now covers both, because there is only one session key.
+`server/api/auth/logout.post.ts` now covers both, because there is only one
+session key.
+
+`auth-wallet.ts` is deleted here rather than in Task 8 because the two endpoints
+rewritten in Steps 1–2, plus `get-nonce.post.ts` deleted just above, were its
+last importers. Removing it in the same commit keeps every task's build green.
 
 - [ ] **Step 4: Fix the remaining import of the deleted module**
 

@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { useRuntimeConfig } from '#imports';
+import { runMigrations } from './migrations';
 
 // Connection pool configuration
 const POOL_CONFIG = {
@@ -241,6 +242,9 @@ function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_nft_ownership_owner ON nft_project_ownership (owner_address);
     CREATE INDEX IF NOT EXISTS idx_nft_ownership_project ON nft_project_ownership (project_id);
   `);
+
+  // Rebuilds and data moves that ensureColumn cannot express.
+  runMigrations(db);
 }
 
 /**

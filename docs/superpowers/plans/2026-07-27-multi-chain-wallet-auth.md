@@ -2833,7 +2833,22 @@ For each hit, apply these substitutions:
 | `requireWalletUser`, `requireWalletProjectAccess`, `requireWalletProjectAdmin`, `isWalletProjectMember`, `getSessionWallet` | `requireUser`, `requireProjectAccess`, `requireProjectAdmin`, `isProjectMember` from `#utils/auth` — these are now the only path |
 | `SessionWalletUser`, `WalletUser` types                                                                                     | `SessionUser` from `#utils/auth`                                                                                                 |
 
-`server/utils/nft-ownership.ts` is the known hit: it imports nothing from `auth-wallet` directly but compares lowercased EVM addresses, which is unchanged. Verify with the grep above rather than assuming.
+**There are exactly four importers, and all four must be handled in this task —
+otherwise deleting the module breaks the build.** Note that three of them use a
+multi-line `import { … } from '#utils/auth-wallet'`, so a grep that filters for
+lines containing the word `import` will miss them; grep for `auth-wallet` alone.
+
+| Importer                                       | Handling                                                                                                                                             |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server/api/auth/wallet/get-nonce.post.ts`     | deleted in Step 3                                                                                                                                    |
+| `server/api/auth/wallet/login-message.post.ts` | rewritten in Step 1                                                                                                                                  |
+| `server/api/auth/wallet/login.post.ts`         | rewritten in Step 2                                                                                                                                  |
+| `server/utils/nft-ownership.ts`                | **`import { upsertWalletUser } from './auth-wallet'`** — swap for `resolveIdentity({ provider: 'eip155', subject: addr }, null)` per the table above |
+
+The `nft-ownership.ts` import did not exist when this plan was written; Task 4
+added it while adapting that file to the unified schema. Its behavior is covered
+indirectly by `tests/token-gating.test.ts`, which asserts on the
+`user_identities` rows the call produces — run that file after the swap.
 
 - [ ] **Step 5: Verify the whole suite passes and the app builds**
 

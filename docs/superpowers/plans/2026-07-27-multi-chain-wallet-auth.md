@@ -18,6 +18,12 @@
 - **Canonical `subject` per provider:** `eip155` → `getAddress(a).toLowerCase()`; `solana` → base58 **case preserved**; `polkadot` → `encodeAddress(decodeAddress(a), 42)`; `google` → OAuth `sub`.
 - **Chain allowlist applies to `eip155` only.** Solana and Polkadot `chain_id` values are client-reported, stored for display, and never trusted for authorization.
 - **Table rebuilds must preserve primary key values** by copying `id` explicitly. `user_identities.user_id`, `projects.owner_id`, `user_encryption_access.user_id` and `page_versions.author_id` all reference `users(id)`.
+- **`@noble/curves` v2 subpath imports must carry the `.js` suffix.** The installed
+  2.2.0 exports `./ed25519.js` only; the bare `@noble/curves/ed25519` fails with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`. The v2 API is otherwise identical to v1 for
+  what this plan uses (`getPublicKey`, `sign`, `verify`), and `@scure/base` 2.2.0
+  keeps `base58.encode` / `base58.decode` unchanged — both verified against the
+  installed versions.
 - **Test commands:** whole suite `npm test`; one file `npx vitest run tests/<file>.test.ts`; one case `npx vitest run tests/<file>.test.ts -t "<name>"`.
 - **Test harness:** tests import real server modules via the `#utils` alias. `tests/setup/nuxt-globals.ts` installs stand-ins for Nuxt auto-imports; `createTestDb()` / `destroyTestDbs()` from `tests/setup/db.ts` give each test a fresh on-disk SQLite file. Never mock cryptography — every test signs with a real deterministic key.
 - **Commit format:** conventional commits (commitlint is enforced by a husky hook).
@@ -1140,7 +1146,7 @@ git commit -m "feat(auth): add eip155 chain adapter"
 ```ts
 // tests/auth-chain-solana.test.ts
 import { describe, it, expect } from 'vitest';
-import { ed25519 } from '@noble/curves/ed25519';
+import { ed25519 } from '@noble/curves/ed25519.js';
 import { base58 } from '@scure/base';
 import { solanaAdapter } from '#utils/auth/chains/solana';
 
@@ -1239,7 +1245,7 @@ Expected: FAIL — cannot resolve `#utils/auth/chains/solana`.
 
 ```ts
 // server/utils/auth/chains/solana.ts
-import { ed25519 } from '@noble/curves/ed25519';
+import { ed25519 } from '@noble/curves/ed25519.js';
 import { base58 } from '@scure/base';
 import type { ChainAdapter, MessageInput, ParsedMessage } from '../types';
 
@@ -1592,7 +1598,7 @@ git commit -m "feat(auth): add polkadot chain adapter"
 // tests/auth-verify.test.ts
 import { describe, it, expect } from 'vitest';
 import { privateKeyToAccount } from 'viem/accounts';
-import { ed25519 } from '@noble/curves/ed25519';
+import { ed25519 } from '@noble/curves/ed25519.js';
 import { base58 } from '@scure/base';
 import { generateNonce, verifyLoginAttempt, getAuthConfig } from '#utils/auth/verify';
 import { getAdapter } from '#utils/auth/chains';

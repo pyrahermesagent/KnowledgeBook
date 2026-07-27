@@ -10,6 +10,24 @@ import { setRuntimeConfig } from './setup/nuxt-globals';
 const tempDirs: string[] = [];
 
 /**
+ * Mixed-case (checksum-style) address used alongside the all-digit
+ * `0x1111...1111` wallet already in the fixture. `0x1111...1111` has no hex
+ * letters, so lowercasing it is a no-op — a dropped `.toLowerCase()`/`lower()`
+ * anywhere in the fold would still pass every assertion keyed on that address.
+ * This one has letters, so canonicalization actually has something to do.
+ *
+ * The "lower" constant is a separate hardcoded literal, not
+ * `MIXED_CASE_WALLET.toLowerCase()` computed here — an assertion built from a
+ * value computed the same way the code under test computes it would still
+ * pass if that computation were subtly wrong or removed.
+ */
+const MIXED_CASE_WALLET = '0xAbCdEf0123456789AbCdEf0123456789AbCdEf01';
+const MIXED_CASE_WALLET_LOWER = '0xabcdef0123456789abcdef0123456789abcdef01';
+
+/** No wallet_users row (and so no identity) exists for this address. */
+const ORPHAN_WALLET = '0x9999999999999999999999999999999999999999';
+
+/**
  * A database as it exists BEFORE this feature: Google users, wallet users, and
  * the two parallel membership tables. Migrations must fold this into the
  * unified model without losing or granting access.
@@ -68,14 +86,30 @@ function createPreMigrationDb(): string {
     INSERT INTO users (id, google_id, email, name) VALUES
       (1, 'google-sub-alice', 'alice@corp.com', 'Alice'),
       (5, 'google-sub-bob',   'bob@corp.com',   'Bob');
+    -- Wallet 2 is the mixed-case address (see MIXED_CASE_WALLET above), added
+    -- so the fold has a wallet whose lowercasing actually matters.
     INSERT INTO wallet_users (id, wallet_address, chain_id) VALUES
-      (1, '0x1111111111111111111111111111111111111111', 1);
+      (1, '0x1111111111111111111111111111111111111111', 1),
+      (2, '${MIXED_CASE_WALLET}', 1);
     INSERT INTO projects (id, owner_id, slug, name) VALUES
       (10, 1, 'alice-docs', 'Alice Docs'),
       (11, 5, 'bob-docs',   'Bob Docs');
+    -- Project 12 is wallet-owned (owner_wallet_address set, mixed case) so
+    -- migration 3's ownership-resolution UPDATE has a row to actually
+    -- resolve; its seeded owner_id (1) is a placeholder that must be moved to
+    -- the real wallet owner. Project 13's owner_wallet_address matches no
+    -- wallet_users row / identity, so the EXISTS guard must leave its seeded
+    -- owner_id (5) untouched rather than nulling it (owner_id is NOT NULL).
+    INSERT INTO projects (id, owner_id, slug, name, owner_wallet_address) VALUES
+      (12, 1, 'wallet-owned-docs',  'Wallet Owned Docs',  '${MIXED_CASE_WALLET}'),
+      (13, 5, 'orphan-wallet-docs', 'Orphan Wallet Docs', '${ORPHAN_WALLET}');
     INSERT INTO project_members (project_id, email) VALUES (10, 'bob@corp.com');
+    -- Project 11 gets the mixed-case wallet as a member too, so migration 4's
+    -- fold (not just migration 3's identity creation) has a mixed-case row to
+    -- lowercase.
     INSERT INTO wallet_project_members (project_id, wallet_address) VALUES
-      (10, '0x1111111111111111111111111111111111111111');
+      (10, '0x1111111111111111111111111111111111111111'),
+      (11, '${MIXED_CASE_WALLET}');
   `);
   db.close();
   return path;
@@ -244,5 +278,63 @@ describe('wallet fold-in', () => {
       (c) => c.name
     );
     expect(projectCols).not.toContain('owner_wallet_address');
+  });
+
+  it('lowercases a mixed-case wallet address into the eip155 identity subject', () => {
+    setRuntimeConfig({ databasePath: createPreMigrationDb() });
+    const db = useDb();
+
+    // Looked up by the lowercased literal: if migration 3 ever dropped its
+    // .toLowerCase() call, the stored subject would still be mixed-case and
+    // this lookup would find nothing.
+    const identity = db
+      .prepare("SELECT user_id FROM user_identities WHERE provider = 'eip155' AND subject = ?")
+      .get(MIXED_CASE_WALLET_LOWER) as { user_id: number } | undefined;
+
+    expect(identity).toBeDefined();
+  });
+
+  it('folds a mixed-case wallet membership into project_members with a lowercased identifier', () => {
+    setRuntimeConfig({ databasePath: createPreMigrationDb() });
+    const db = useDb();
+
+    const member = db
+      .prepare("SELECT identifier FROM project_members WHERE project_id = 11 AND kind = 'eip155'")
+      .get() as { identifier: string } | undefined;
+
+    expect(member?.identifier).toBe(MIXED_CASE_WALLET_LOWER);
+  });
+
+  it('resolves wallet-owned project ownership case-insensitively', () => {
+    setRuntimeConfig({ databasePath: createPreMigrationDb() });
+    const db = useDb();
+
+    const identity = db
+      .prepare("SELECT user_id FROM user_identities WHERE provider = 'eip155' AND subject = ?")
+      .get(MIXED_CASE_WALLET_LOWER) as { user_id: number } | undefined;
+    expect(identity).toBeDefined();
+
+    // Seeded owner_id was 1 (a placeholder); migration 3 must move it to the
+    // account behind the wallet by matching the checksummed
+    // owner_wallet_address on the project row case-insensitively against the
+    // already-lowercased identity subject.
+    const project = db.prepare('SELECT owner_id FROM projects WHERE id = 12').get() as {
+      owner_id: number;
+    };
+    expect(project.owner_id).toBe(identity!.user_id);
+    expect(project.owner_id).not.toBe(1);
+  });
+
+  it('leaves ownership untouched when owner_wallet_address matches no identity', () => {
+    setRuntimeConfig({ databasePath: createPreMigrationDb() });
+    const db = useDb();
+
+    // No wallet_users row (and so no eip155 identity) exists for
+    // ORPHAN_WALLET; the EXISTS guard must leave the seeded owner_id alone
+    // rather than nulling it out (owner_id is NOT NULL).
+    const project = db.prepare('SELECT owner_id FROM projects WHERE id = 13').get() as {
+      owner_id: number;
+    };
+    expect(project.owner_id).toBe(5);
   });
 });

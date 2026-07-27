@@ -295,7 +295,15 @@ const team = ref<{
   admin: { email: string; name: string; avatar: string };
   members: TeamMember[];
 } | null>(null);
-const newMemberEmail = ref('');
+const newMemberInput = ref('');
+const newMemberKind = ref<'email' | 'eip155' | 'solana' | 'polkadot'>('email');
+const KIND_PLACEHOLDERS: Record<string, string> = {
+  email: 'name@gmail.com',
+  eip155: '0x…',
+  solana: 'Solana address',
+  polkadot: 'Polkadot address',
+};
+const newMemberPlaceholder = computed(() => KIND_PLACEHOLDERS[newMemberKind.value] ?? '');
 const teamError = ref('');
 const teamBusy = ref(false);
 
@@ -319,9 +327,9 @@ async function addMember() {
   try {
     await $fetch(`/api/projects/${slug}/members`, {
       method: 'POST',
-      body: { email: newMemberEmail.value },
+      body: { kind: newMemberKind.value, identifier: newMemberInput.value },
     });
-    newMemberEmail.value = '';
+    newMemberInput.value = '';
     await loadTeam();
   } catch (e: any) {
     teamError.value = e.data?.message ?? 'Failed to add member';
@@ -618,15 +626,21 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` });
         </div>
 
         <form class="member-add" @submit.prevent="addMember">
+          <select v-model="newMemberKind" class="select-size member-add-kind" :disabled="teamBusy">
+            <option value="email">Email</option>
+            <option value="eip155">Ethereum</option>
+            <option value="solana">Solana</option>
+            <option value="polkadot">Polkadot</option>
+          </select>
           <input
-            v-model="newMemberEmail"
+            v-model="newMemberInput"
             class="input"
-            type="email"
-            placeholder="name@gmail.com"
+            :type="newMemberKind === 'email' ? 'email' : 'text'"
+            :placeholder="newMemberPlaceholder"
             required
             :disabled="teamBusy"
           />
-          <button class="btn btn-primary" :disabled="teamBusy || !newMemberEmail.trim()">
+          <button class="btn btn-primary" :disabled="teamBusy || !newMemberInput.trim()">
             {{ teamBusy ? 'Adding…' : 'Add member' }}
           </button>
         </form>
@@ -1076,6 +1090,9 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` });
 }
 .member-add .input {
   flex: 1;
+}
+.member-add-kind {
+  flex-shrink: 0;
 }
 .error {
   color: #c0392b;

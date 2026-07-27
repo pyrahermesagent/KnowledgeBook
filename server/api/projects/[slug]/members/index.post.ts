@@ -2,7 +2,10 @@ import { getAdapter } from '#utils/auth/chains';
 import { WALLET_PROVIDERS, type WalletProvider } from '#utils/auth/types';
 
 export default defineEventHandler(async (event) => {
-  const { project } = await requireProjectAdmin(event);
+  // requireProjectAccess, not Admin: any member manages members in this product
+  // ("Everyone below can edit this project and manage members" — the panel's own
+  // copy), and that is what this endpoint enforced before this plan touched it.
+  const { project } = await requireProjectAccess(event);
   const body = await readBody<{ kind?: string; identifier?: string; email?: string }>(event);
 
   // `email` stays accepted so an existing client keeps working.

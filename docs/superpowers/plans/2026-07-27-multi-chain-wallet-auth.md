@@ -24,6 +24,13 @@
   what this plan uses (`getPublicKey`, `sign`, `verify`), and `@scure/base` 2.2.0
   keeps `base58.encode` / `base58.decode` unchanged — both verified against the
   installed versions.
+- **`npm test` is the gate, not `npm run typecheck`.** This repo has ~237
+  pre-existing `vue-tsc` errors on `main`, most of them from `useRuntimeConfig()`
+  resolving to `{}` (so `config.web3.appDomain` errors even though the key
+  exists). Measured at merge base 234926f, before any work on this branch. Steps
+  below that say "run typecheck, expect no errors" mean **no NEW errors beyond
+  that baseline** — compare counts, do not expect zero. A green full test suite
+  is the real signal.
 - **Test commands:** whole suite `npm test`; one file `npx vitest run tests/<file>.test.ts`; one case `npx vitest run tests/<file>.test.ts -t "<name>"`.
 - **Test harness:** tests import real server modules via the `#utils` alias. `tests/setup/nuxt-globals.ts` installs stand-ins for Nuxt auto-imports; `createTestDb()` / `destroyTestDbs()` from `tests/setup/db.ts` give each test a fresh on-disk SQLite file. Never mock cryptography — every test signs with a real deterministic key.
 - **Commit format:** conventional commits (commitlint is enforced by a husky hook).

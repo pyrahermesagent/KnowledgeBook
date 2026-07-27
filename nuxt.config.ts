@@ -43,7 +43,10 @@ export default defineNuxtConfig({
     // login message and re-checked server side, so they must match the origin
     // the app is actually served from.
     web3: {
-      chainId: '1',
+      // Comma-separated EIP-155 chain ids accepted in a SIWE login message.
+      // Identity is ecosystem-wide, so this only constrains which chain a user
+      // may be connected to while signing — not who they are.
+      evmChainIds: '1,10,137,8453,42161',
       appDomain: 'localhost:3000',
       appUri: 'http://localhost:3000/login',
     },

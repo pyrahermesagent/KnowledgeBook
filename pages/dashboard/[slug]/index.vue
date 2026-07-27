@@ -267,10 +267,27 @@ async function deleteProject() {
 // ---------- team ----------
 interface TeamMember {
   id: number;
+  kind: string;
   email: string;
+  identifier: string;
   name: string;
   avatar: string;
   pending: boolean;
+}
+
+const KIND_LABELS: Record<string, string> = {
+  email: '',
+  eip155: 'Ethereum',
+  solana: 'Solana',
+  polkadot: 'Polkadot',
+};
+
+/** Emails render in full; addresses are unreadable at full length. */
+function memberLabel(member: TeamMember): string {
+  if (member.kind === 'email') return member.email;
+  const a = member.identifier;
+  const short = a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a;
+  return `${KIND_LABELS[member.kind] ?? member.kind} ${short}`;
 }
 const { user: sessionUser } = useUserSession();
 const showTeam = ref(false);
@@ -584,12 +601,12 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` });
           <div v-for="member in team.members" :key="member.id" class="member-row">
             <img v-if="member.avatar" :src="member.avatar" alt="" class="member-avatar" />
             <span v-else class="member-avatar member-avatar-fallback">{{
-              (member.name || member.email)[0]?.toUpperCase()
+              (member.name || memberLabel(member))[0]?.toUpperCase()
             }}</span>
             <span class="member-name">
-              {{ member.name || member.email }}
+              {{ member.name || memberLabel(member) }}
               <span class="muted member-email">{{
-                member.name ? member.email : 'Has not signed in yet'
+                member.name ? memberLabel(member) : 'Has not signed in yet'
               }}</span>
             </span>
             <span v-if="member.pending" class="badge">Invited</span>

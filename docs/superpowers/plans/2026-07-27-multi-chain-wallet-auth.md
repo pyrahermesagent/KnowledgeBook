@@ -2650,6 +2650,37 @@ function memberLabel(member: TeamMember): string {
 
 and use `memberLabel(member)` everywhere the row currently shows `member.email`.
 
+Finally, expose invite-by-address in the panel. The POST endpoint accepts a
+`kind`, but `addMember()` only ever sends `{ email }`, so wallet invites — the
+whole point of keying membership by identity — would be reachable only through
+the API. Add a kind selector beside the invite input:
+
+```ts
+const newMemberKind = ref<'email' | 'eip155' | 'solana' | 'polkadot'>('email');
+
+async function addMember() {
+  teamBusy.value = true;
+  teamError.value = '';
+  try {
+    await $fetch(`/api/projects/${slug}/members`, {
+      method: 'POST',
+      body: { kind: newMemberKind.value, identifier: newMemberInput.value },
+    });
+    newMemberInput.value = '';
+    await loadTeam();
+  } catch (e: any) {
+    teamError.value = e.data?.message ?? 'Failed to add member';
+  } finally {
+    teamBusy.value = false;
+  }
+}
+```
+
+Rename `newMemberEmail` to `newMemberInput`, bind a `<select>` to
+`newMemberKind` with the four options, and switch the input's placeholder and
+`type` on the selected kind (`type="email"` only for `email`, so a wallet
+address is not rejected by browser validation).
+
 Replace the body of `server/api/projects/[slug]/members/index.post.ts`:
 
 ```ts
@@ -2657,7 +2688,10 @@ import { getAdapter } from '#utils/auth/chains';
 import { WALLET_PROVIDERS, type WalletProvider } from '#utils/auth/types';
 
 export default defineEventHandler(async (event) => {
-  const { project } = await requireProjectAdmin(event);
+  // requireProjectAccess, not Admin: any member manages members in this product
+  // ("Everyone below can edit this project and manage members" — the panel's own
+  // copy), and that is what this endpoint enforced before this plan touched it.
+  const { project } = await requireProjectAccess(event);
   const body = await readBody<{ kind?: string; identifier?: string; email?: string }>(event);
 
   // `email` stays accepted so an existing client keeps working.

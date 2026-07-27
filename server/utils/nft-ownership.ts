@@ -1,10 +1,9 @@
-import type { H3Event } from 'h3';
 import {
   validateErc721Ownership,
   toSupportedNetwork,
   type SupportedNetwork,
 } from './token-validation';
-import { upsertWalletUser } from './auth-wallet';
+import { resolveIdentity } from './auth/identities';
 
 export interface NftOwnershipRecord {
   project_id: number;
@@ -85,7 +84,10 @@ export async function transferProjectOwnershipViaNft(
   // identity (get-or-create, same as wallet login) now that wallets no longer
   // have their own table — see migrations 3 and 4.
   db.transaction(() => {
-    const recipientUserId = upsertWalletUser(recipient, 1);
+    const { userId: recipientUserId } = resolveIdentity(
+      { provider: 'eip155', subject: recipient },
+      null
+    );
 
     db.prepare(
       `
@@ -182,28 +184,4 @@ export async function validateNftAccess(
 
   // Project doesn't require NFT ownership
   return { hasAccess: true };
-}
-
-/**
- * Middleware for NFT-gated project access
- */
-export async function nftGateMiddleware(event: H3Event): Promise<void> {
-  const wallet = await getSessionWallet(event);
-  const slug = getRouterParam(event, 'slug')!;
-  const project = getProjectBySlug(slug);
-
-  if (!project) {
-    throw createError({ statusCode: 404, message: 'Project not found' });
-  }
-
-  if (wallet) {
-    const { hasAccess, reason } = await validateNftAccess(project.id, wallet.wallet_address);
-
-    if (!hasAccess) {
-      throw createError({
-        statusCode: 403,
-        message: reason || 'Project access restricted by NFT ownership',
-      });
-    }
-  }
 }

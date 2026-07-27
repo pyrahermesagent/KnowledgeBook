@@ -69,7 +69,7 @@ const connectWallet = async () => {
 
 const disconnect = async () => {
   try {
-    await $fetch('/api/auth/wallet/logout', { method: 'POST' });
+    await $fetch('/api/auth/logout', { method: 'POST' });
     walletAddress.value = null;
     emit('disconnect');
   } catch (error) {

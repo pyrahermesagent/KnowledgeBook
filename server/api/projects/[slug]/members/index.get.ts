@@ -1,45 +1,15 @@
-// Team roster: the admin (project owner) first, then invited members.
 export default defineEventHandler(async (event) => {
-  const { project } = await requireProjectAccess(event);
-  const db = useDb();
+  const { project } = await requireProjectAdmin(event);
 
-  const admin = db
-    .prepare('SELECT email, name, avatar FROM users WHERE id = ?')
-    .get(project.owner_id) as { email: string; name: string; avatar: string } | undefined;
-
-  // A member may not have signed in yet — join their account info when it exists.
-  const members = db
+  return useDb()
     .prepare(
-      `
-    SELECT m.id, m.identifier AS email, m.added_at, u.name, u.avatar
-    FROM project_members m
-    LEFT JOIN users u ON lower(u.email) = m.identifier
-    WHERE m.project_id = ? AND m.kind = 'email'
-    ORDER BY m.added_at, m.id
-  `
+      'SELECT id, kind, identifier, role, added_at FROM project_members WHERE project_id = ? ORDER BY added_at'
     )
     .all(project.id) as {
     id: number;
-    email: string;
+    kind: string;
+    identifier: string;
+    role: string;
     added_at: string;
-    name: string | null;
-    avatar: string | null;
   }[];
-
-  return {
-    admin: {
-      email: admin?.email ?? '',
-      name: admin?.name ?? '',
-      avatar: admin?.avatar ?? '',
-      role: 'admin',
-    },
-    members: members.map((m) => ({
-      id: m.id,
-      email: m.email,
-      name: m.name ?? '',
-      avatar: m.avatar ?? '',
-      pending: m.name === null,
-      role: 'member',
-    })),
-  };
 });

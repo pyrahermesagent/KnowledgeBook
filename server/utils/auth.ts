@@ -2,7 +2,8 @@ import type { H3Event } from 'h3';
 
 export interface SessionUser {
   id: number;
-  email: string;
+  /** Null for accounts that have only ever signed in with a wallet. */
+  email: string | null;
   name: string;
   avatar: string;
 }
@@ -29,8 +30,6 @@ export interface ProjectRow {
   radius: number;
   created_at: string;
   updated_at: string;
-  /** Set when the project is owned via a wallet rather than a Google account. */
-  owner_wallet_address: string | null;
 }
 
 export function getProjectBySlug(slug: string): ProjectRow | undefined {
@@ -42,14 +41,34 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-/** True when the email belongs to a member of the project (the admin/owner is not stored as a member). */
-export function isProjectMember(projectId: number, email: string): boolean {
+/**
+ * True when the account is a member of the project.
+ *
+ * A member row is either an email invite or a wallet invite, so an invitation
+ * can be issued before that person has ever signed in. Email rows match the
+ * account's email; wallet rows match any identity linked to the account. The
+ * admin/owner is not stored as a member.
+ *
+ * A null email never matches: `identifier = NULL` is NULL, not true.
+ */
+export function isProjectMember(projectId: number, userId: number, email: string | null): boolean {
   return Boolean(
     useDb()
       .prepare(
-        "SELECT 1 FROM project_members WHERE project_id = ? AND kind = 'email' AND identifier = ?"
+        `SELECT 1 FROM project_members m
+         WHERE m.project_id = @projectId
+           AND ( (m.kind = 'email' AND m.identifier = @email)
+                 OR EXISTS (SELECT 1 FROM user_identities i
+                            WHERE i.user_id = @userId
+                              AND i.provider = m.kind
+                              AND i.subject = m.identifier) )
+         LIMIT 1`
       )
-      .get(projectId, normalizeEmail(email))
+      .get({
+        projectId,
+        userId,
+        email: email ? normalizeEmail(email) : null,
+      })
   );
 }
 
@@ -65,7 +84,7 @@ export async function requireProjectAccess(
   const project = getProjectBySlug(slug);
   if (!project) throw createError({ statusCode: 404, message: 'Project not found' });
   const isAdmin = project.owner_id === user.id;
-  if (!isAdmin && !isProjectMember(project.id, user.email)) {
+  if (!isAdmin && !isProjectMember(project.id, user.id, user.email)) {
     throw createError({ statusCode: 403, message: 'You are not a member of this project' });
   }
   return { user, project, isAdmin };

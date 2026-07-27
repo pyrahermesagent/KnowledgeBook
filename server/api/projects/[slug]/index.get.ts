@@ -23,10 +23,13 @@ export default defineEventHandler(async (event) => {
   }
 
   const session = await getUserSession(event);
-  const sessionUser = session.user as { id?: number; email?: string } | undefined;
+  const sessionUser = session.user as { id?: number; email?: string | null } | undefined;
   const isAdmin = sessionUser?.id === project.owner_id;
   const canEdit =
-    isAdmin || (sessionUser?.email ? isProjectMember(project.id, sessionUser.email) : false);
+    isAdmin ||
+    (sessionUser?.id
+      ? isProjectMember(project.id, sessionUser.id, sessionUser.email ?? null)
+      : false);
 
   return {
     slug: project.slug,

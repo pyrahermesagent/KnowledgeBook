@@ -98,7 +98,7 @@ function getProjectBySlugSafe(slug: string): ProjectRow | undefined {
 async function authenticateWriteAccess(event: H3Event) {
   try {
     const session = await requireUserSession(event);
-    return session.user as { id: number; email: string; name: string; avatar: string };
+    return session.user as { id: number; email: string | null; name: string; avatar: string };
   } catch {
     throw createError({
       statusCode: 401,
@@ -108,22 +108,21 @@ async function authenticateWriteAccess(event: H3Event) {
 }
 
 /**
- * Check if user has project write access
+ * Check if user has project write access.
+ *
+ * Delegates to the identity-aware isProjectMember (#utils/auth) so a wallet
+ * invite here matches the same way it does everywhere else in the app —
+ * this function used to check only email-kind rows directly.
  */
-function hasProjectWriteAccess(projectId: number, userId: number, email: string): boolean {
+function hasProjectWriteAccess(projectId: number, userId: number, email: string | null): boolean {
   const db = useDb();
 
   // Check if user is project owner
-  const owner = db.prepare('SELECT owner_id FROM projects WHERE id = ?').get(projectId);
+  const owner = db.prepare('SELECT owner_id FROM projects WHERE id = ?').get(projectId) as
+    { owner_id: number } | undefined;
   if (owner && owner.owner_id === userId) return true;
 
-  // Check if user is project member
-  const isMember = db
-    .prepare(
-      "SELECT 1 FROM project_members WHERE project_id = ? AND kind = 'email' AND identifier = ?"
-    )
-    .get(projectId, email);
-  return !!isMember;
+  return isProjectMember(projectId, userId, email);
 }
 
 /**

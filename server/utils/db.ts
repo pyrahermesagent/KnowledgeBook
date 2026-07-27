@@ -119,9 +119,11 @@ function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS project_members (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-      email      TEXT NOT NULL,
+      kind       TEXT NOT NULL,
+      identifier TEXT NOT NULL,
+      role       TEXT NOT NULL DEFAULT 'member',
       added_at   TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE (project_id, email)
+      UNIQUE (project_id, kind, identifier)
     );
     CREATE TABLE IF NOT EXISTS pages (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -145,22 +147,6 @@ function initSchema(db: Database.Database): void {
       is_ai_edit         BOOLEAN NOT NULL DEFAULT 0,
       version_comment    TEXT,
       created_at         TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-    -- Wallet users table for Web3 authentication
-    CREATE TABLE IF NOT EXISTS wallet_users (
-      id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      wallet_address  TEXT NOT NULL UNIQUE,
-      chain_id        INTEGER NOT NULL DEFAULT 1,
-      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-    -- Wallet project members table for project access control
-    CREATE TABLE IF NOT EXISTS wallet_project_members (
-      id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      project_id      INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-      wallet_address  TEXT NOT NULL,
-      added_at        TEXT NOT NULL DEFAULT (datetime('now')),
-      role            TEXT NOT NULL DEFAULT 'member',
-      UNIQUE (project_id, wallet_address)
     );
     -- Token-gated projects configuration
     CREATE TABLE IF NOT EXISTS token_gated_projects (
@@ -219,7 +205,6 @@ function initSchema(db: Database.Database): void {
   ensureColumn(db, 'projects', 'text-muted', "TEXT NOT NULL DEFAULT '#6b7280'");
   ensureColumn(db, 'projects', 'border_color', "TEXT NOT NULL DEFAULT '#e5e8ec'");
   ensureColumn(db, 'projects', 'radius', 'INTEGER NOT NULL DEFAULT 8');
-  ensureColumn(db, 'projects', 'owner_wallet_address', 'TEXT');
   ensureColumn(db, 'pages', 'encrypted_content', 'TEXT');
   ensureColumn(db, 'pages', 'encryption_iv', 'TEXT');
   ensureColumn(db, 'pages', 'encryption_key_id', 'TEXT');
@@ -235,8 +220,6 @@ function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_encryption_keys_project ON encryption_keys (project_id);
     CREATE INDEX IF NOT EXISTS idx_encryption_keys_updated ON encryption_keys (updated_at);
     CREATE INDEX IF NOT EXISTS idx_user_encryption_access_user ON user_encryption_access (user_id, project_id);
-    CREATE INDEX IF NOT EXISTS idx_wallet_users_address ON wallet_users (wallet_address);
-    CREATE INDEX IF NOT EXISTS idx_wallet_project_access ON wallet_project_members (wallet_address, project_id);
     CREATE INDEX IF NOT EXISTS idx_token_gated_project ON token_gated_projects (project_id, token_contract);
     CREATE INDEX IF NOT EXISTS idx_nft_ownership_owner ON nft_project_ownership (owner_address);
     CREATE INDEX IF NOT EXISTS idx_nft_ownership_project ON nft_project_ownership (project_id);

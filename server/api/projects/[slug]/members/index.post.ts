@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const info = db
-    .prepare('INSERT INTO project_members (project_id, email) VALUES (?, ?)')
+    .prepare("INSERT INTO project_members (project_id, kind, identifier) VALUES (?, 'email', ?)")
     .run(project.id, email);
   return { id: Number(info.lastInsertRowid), email };
 });

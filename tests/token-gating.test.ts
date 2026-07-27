@@ -220,10 +220,16 @@ describe('NFT project ownership', () => {
 
       expect(result.success).toBe(true);
 
-      const project = db
-        .prepare('SELECT owner_wallet_address FROM projects WHERE id = 1')
-        .get() as any;
-      expect(project.owner_wallet_address).toBe(OTHER.toLowerCase());
+      // Wallets no longer have their own table (folded into users /
+      // user_identities — see migrations 3 and 4): ownership moves by pointing
+      // owner_id at the account behind the recipient's eip155 identity.
+      const identity = db
+        .prepare("SELECT user_id FROM user_identities WHERE provider = 'eip155' AND subject = ?")
+        .get(OTHER.toLowerCase()) as { user_id: number };
+      const project = db.prepare('SELECT owner_id FROM projects WHERE id = 1').get() as {
+        owner_id: number;
+      };
+      expect(project.owner_id).toBe(identity.user_id);
 
       // The ownership record must follow, or the old owner keeps showing up in
       // getNftOwnedProjects.
@@ -231,7 +237,7 @@ describe('NFT project ownership', () => {
       expect(getNftOwnedProjects(OWNER)).not.toContain(1);
     });
 
-    it('creates a wallet record for the recipient', async () => {
+    it('creates an account and eip155 identity for the recipient', async () => {
       const db = createTestDb();
       db.prepare("INSERT INTO users (email) VALUES ('a@b.c')").run();
       db.prepare("INSERT INTO projects (owner_id, slug, name) VALUES (1, 'p1', 'P1')").run();
@@ -240,10 +246,10 @@ describe('NFT project ownership', () => {
 
       await transferProjectOwnershipViaNft(1, OWNER, OTHER);
 
-      const wallet = db
-        .prepare('SELECT 1 FROM wallet_users WHERE wallet_address = ?')
+      const identity = db
+        .prepare("SELECT 1 FROM user_identities WHERE provider = 'eip155' AND subject = ?")
         .get(OTHER.toLowerCase());
-      expect(wallet).toBeTruthy();
+      expect(identity).toBeTruthy();
     });
   });
 });

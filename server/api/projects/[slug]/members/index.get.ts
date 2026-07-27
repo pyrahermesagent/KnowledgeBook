@@ -11,10 +11,10 @@ export default defineEventHandler(async (event) => {
   const members = db
     .prepare(
       `
-    SELECT m.id, m.email, m.added_at, u.name, u.avatar
+    SELECT m.id, m.identifier AS email, m.added_at, u.name, u.avatar
     FROM project_members m
-    LEFT JOIN users u ON lower(u.email) = m.email
-    WHERE m.project_id = ?
+    LEFT JOIN users u ON lower(u.email) = m.identifier
+    WHERE m.project_id = ? AND m.kind = 'email'
     ORDER BY m.added_at, m.id
   `
     )

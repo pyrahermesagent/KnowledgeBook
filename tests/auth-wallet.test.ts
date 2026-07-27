@@ -246,10 +246,9 @@ describe('wallet persistence', () => {
     const db = createTestDb();
     db.prepare("INSERT INTO users (email) VALUES ('a@b.c')").run();
     db.prepare("INSERT INTO projects (owner_id, slug, name) VALUES (1, 'p', 'P')").run();
-    db.prepare('INSERT INTO wallet_project_members (project_id, wallet_address) VALUES (?, ?)').run(
-      1,
-      ADDRESS
-    );
+    db.prepare(
+      "INSERT INTO project_members (project_id, kind, identifier) VALUES (?, 'eip155', ?)"
+    ).run(1, ADDRESS);
 
     expect(isWalletProjectMember(1, account.address)).toBe(true);
   });

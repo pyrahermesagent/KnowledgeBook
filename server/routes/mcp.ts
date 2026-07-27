@@ -119,7 +119,9 @@ function hasProjectWriteAccess(projectId: number, userId: number, email: string)
 
   // Check if user is project member
   const isMember = db
-    .prepare('SELECT 1 FROM project_members WHERE project_id = ? AND email = ?')
+    .prepare(
+      "SELECT 1 FROM project_members WHERE project_id = ? AND kind = 'email' AND identifier = ?"
+    )
     .get(projectId, email);
   return !!isMember;
 }

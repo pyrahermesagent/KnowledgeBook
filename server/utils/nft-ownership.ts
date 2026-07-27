@@ -4,6 +4,7 @@ import {
   toSupportedNetwork,
   type SupportedNetwork,
 } from './token-validation';
+import { upsertWalletUser } from './auth-wallet';
 
 export interface NftOwnershipRecord {
   project_id: number;
@@ -78,25 +79,22 @@ export async function transferProjectOwnershipViaNft(
     };
   }
 
-  // The wallet record, the project owner and the ownership record must move
-  // together — a partial transfer would leave the project unreachable by either
-  // wallet.
+  // The recipient's account, the project owner and the ownership record must
+  // move together — a partial transfer would leave the project unreachable by
+  // either wallet. The recipient's account is the one behind their eip155
+  // identity (get-or-create, same as wallet login) now that wallets no longer
+  // have their own table — see migrations 3 and 4.
   db.transaction(() => {
-    db.prepare(
-      `
-      INSERT OR IGNORE INTO wallet_users (wallet_address, chain_id, created_at)
-      VALUES (?, 1, datetime('now'))
-    `
-    ).run(recipient);
+    const recipientUserId = upsertWalletUser(recipient, 1);
 
     db.prepare(
       `
       UPDATE projects
-      SET owner_wallet_address = ?,
+      SET owner_id = ?,
           updated_at = datetime('now')
       WHERE id = ?
     `
-    ).run(recipient, projectId);
+    ).run(recipientUserId, projectId);
 
     db.prepare(
       `

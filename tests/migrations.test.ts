@@ -194,3 +194,55 @@ describe('users table rebuild', () => {
     ).not.toThrow();
   });
 });
+
+describe('wallet fold-in', () => {
+  it('gives each wallet_users row an account and an eip155 identity', () => {
+    setRuntimeConfig({ databasePath: createPreMigrationDb() });
+    const db = useDb();
+
+    const identity = db
+      .prepare(
+        "SELECT user_id, chain_id FROM user_identities WHERE provider = 'eip155' AND subject = ?"
+      )
+      .get('0x1111111111111111111111111111111111111111') as
+      { user_id: number; chain_id: string } | undefined;
+
+    expect(identity).toBeDefined();
+    expect(identity!.chain_id).toBe('eip155:1');
+
+    const user = db.prepare('SELECT email FROM users WHERE id = ?').get(identity!.user_id) as {
+      email: string | null;
+    };
+    expect(user.email).toBeNull();
+  });
+
+  it('rekeys email memberships and folds in wallet memberships', () => {
+    setRuntimeConfig({ databasePath: createPreMigrationDb() });
+    const db = useDb();
+
+    const members = db
+      .prepare('SELECT kind, identifier FROM project_members WHERE project_id = 10 ORDER BY kind')
+      .all() as { kind: string; identifier: string }[];
+
+    expect(members).toEqual([
+      { kind: 'eip155', identifier: '0x1111111111111111111111111111111111111111' },
+      { kind: 'email', identifier: 'bob@corp.com' },
+    ]);
+  });
+
+  it('drops the superseded tables and column', () => {
+    setRuntimeConfig({ databasePath: createPreMigrationDb() });
+    const db = useDb();
+
+    const tables = (
+      db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]
+    ).map((t) => t.name);
+    expect(tables).not.toContain('wallet_users');
+    expect(tables).not.toContain('wallet_project_members');
+
+    const projectCols = (db.prepare('PRAGMA table_info(projects)').all() as { name: string }[]).map(
+      (c) => c.name
+    );
+    expect(projectCols).not.toContain('owner_wallet_address');
+  });
+});

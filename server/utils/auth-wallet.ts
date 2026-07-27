@@ -201,29 +201,39 @@ export function generateNonce(): string {
 }
 
 /**
- * Stores wallet user in database (extends users table)
+ * Gets or creates the account behind a wallet address, identified by its
+ * eip155 identity, and returns that account's `users.id`.
+ *
+ * Wallets no longer get their own table (folded into `users` /
+ * `user_identities` — see migrations 3 and 4); this mirrors the same
+ * find-or-create shape those migrations use so a wallet address always
+ * resolves to exactly one account.
  */
 export function upsertWalletUser(address: string, chainId: number): number {
   const db = useDb();
   const walletAddress = normalizeAddress(address);
 
-  // Check if wallet already exists
   const existing = db
-    .prepare('SELECT id FROM wallet_users WHERE wallet_address = ?')
-    .get(walletAddress) as { id: number } | undefined;
+    .prepare("SELECT user_id FROM user_identities WHERE provider = 'eip155' AND subject = ?")
+    .get(walletAddress) as { user_id: number } | undefined;
 
   if (existing) {
-    return existing.id;
+    return existing.user_id;
   }
 
-  // Insert new wallet user
-  const result = db
+  const shortened = `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}`;
+  const { id } = db
     .prepare(
-      "INSERT INTO wallet_users (wallet_address, chain_id, created_at) VALUES (?, ?, datetime('now')) RETURNING id"
+      "INSERT INTO users (email, name, avatar, created_at) VALUES (NULL, ?, '', datetime('now')) RETURNING id"
     )
-    .get(walletAddress, chainId) as { id: number };
+    .get(shortened) as { id: number };
 
-  return result.id;
+  db.prepare(
+    `INSERT INTO user_identities (user_id, provider, subject, chain_id, created_at)
+     VALUES (?, 'eip155', ?, ?, datetime('now'))`
+  ).run(id, walletAddress, `eip155:${chainId}`);
+
+  return id;
 }
 
 /**
@@ -232,7 +242,9 @@ export function upsertWalletUser(address: string, chainId: number): number {
 export function isWalletProjectMember(projectId: number, walletAddress: string): boolean {
   return Boolean(
     useDb()
-      .prepare('SELECT 1 FROM wallet_project_members WHERE project_id = ? AND wallet_address = ?')
+      .prepare(
+        "SELECT 1 FROM project_members WHERE project_id = ? AND kind = 'eip155' AND identifier = ?"
+      )
       .get(projectId, walletAddress.toLowerCase())
   );
 }

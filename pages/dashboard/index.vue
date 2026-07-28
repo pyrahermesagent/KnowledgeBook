@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BookOpen, Plus, Download, LogOut } from '@lucide/vue';
+import { BookOpen, Plus, Download, LogOut, Settings } from '@lucide/vue';
 
 definePageMeta({ middleware: 'auth' });
 
@@ -75,6 +75,9 @@ async function logout() {
       <div class="user">
         <img v-if="user?.avatar" :src="user.avatar" alt="" class="avatar" />
         <span class="muted user-name">{{ user?.name || user?.email }}</span>
+        <NuxtLink to="/dashboard/account" class="btn btn-sm">
+          <Settings :size="14" /> <span class="user-signout">Account</span>
+        </NuxtLink>
         <button class="btn btn-sm" @click="logout">
           <LogOut :size="14" /> <span class="user-signout">Sign out</span>
         </button>

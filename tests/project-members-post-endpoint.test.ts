@@ -148,4 +148,137 @@ describe('POST /api/projects/[slug]/members', () => {
       .get(project.id) as { identifier: string } | undefined;
     expect(row?.identifier).toBe(checksummed.toLowerCase());
   });
+
+  // The rewrite weakened email validation to `identifier.includes('@')`, which
+  // accepted the literal string "@" — and every other shape below — as a member.
+  describe('email validation', () => {
+    it.each(['@', 'a@b', 'no-at-sign.com', '@corp.com', 'user@', 'us er@corp.com', 'a@@b.com'])(
+      'rejects %j as an email address',
+      async (candidate) => {
+        const owner = resolveIdentity(
+          { provider: 'google', subject: `post-owner-email-${candidate}`, email: 'o@corp.com' },
+          null
+        );
+        const project = makeProject(owner.userId);
+        sessionAs(owner.userId, 'o@corp.com');
+
+        await expect(
+          membersPostHandler(createTestEvent({ slug: project.slug }, { email: candidate }))
+        ).rejects.toMatchObject({ statusCode: 400 });
+
+        const rows = db
+          .prepare('SELECT COUNT(*) AS n FROM project_members WHERE project_id = ?')
+          .get(project.id) as { n: number };
+        expect(rows.n).toBe(0);
+      }
+    );
+
+    it('still accepts an ordinary address', async () => {
+      const owner = resolveIdentity(
+        { provider: 'google', subject: 'post-owner-email-ok', email: 'ok-owner@corp.com' },
+        null
+      );
+      const project = makeProject(owner.userId);
+      sessionAs(owner.userId, 'ok-owner@corp.com');
+
+      const result = (await membersPostHandler(
+        createTestEvent({ slug: project.slug }, { email: 'Someone.Else+tag@Corp.co.uk' })
+      )) as { identifier: string };
+
+      expect(result.identifier).toBe('someone.else+tag@corp.co.uk');
+    });
+  });
+
+  // The base endpoint refused to invite the project admin, who already has
+  // access and is rendered separately from the member list. Dropping that check
+  // let the owner be added as a member and appear twice in the roster.
+  describe('inviting the project admin', () => {
+    it('refuses the admin by email', async () => {
+      const owner = resolveIdentity(
+        { provider: 'google', subject: 'post-owner-self', email: 'selfowner@corp.com' },
+        null
+      );
+      const project = makeProject(owner.userId);
+      sessionAs(owner.userId, 'selfowner@corp.com');
+
+      await expect(
+        membersPostHandler(createTestEvent({ slug: project.slug }, { email: 'SelfOwner@corp.com' }))
+      ).rejects.toMatchObject({ statusCode: 400, message: /project admin/i });
+
+      const rows = db
+        .prepare('SELECT COUNT(*) AS n FROM project_members WHERE project_id = ?')
+        .get(project.id) as { n: number };
+      expect(rows.n).toBe(0);
+    });
+
+    it('refuses a wallet address that resolves to the admin', async () => {
+      // Same person, reached by a different login method: the address belongs
+      // to an identity linked to the owner's account.
+      const owner = resolveIdentity(
+        { provider: 'google', subject: 'post-owner-wallet-self', email: 'walletowner@corp.com' },
+        null
+      );
+      const address = '0x2222222222222222222222222222222222222222';
+      resolveIdentity({ provider: 'eip155', subject: address }, owner.userId);
+
+      const project = makeProject(owner.userId);
+      sessionAs(owner.userId, 'walletowner@corp.com');
+
+      await expect(
+        membersPostHandler(
+          createTestEvent({ slug: project.slug }, { kind: 'eip155', identifier: address })
+        )
+      ).rejects.toMatchObject({ statusCode: 400, message: /project admin/i });
+    });
+
+    it('still allows inviting a wallet that belongs to somebody else', async () => {
+      const owner = resolveIdentity(
+        { provider: 'google', subject: 'post-owner-wallet-other', email: 'otherowner@corp.com' },
+        null
+      );
+      const address = '0x5555555555555555555555555555555555555555';
+      resolveIdentity({ provider: 'eip155', subject: address }, null); // a different account
+
+      const project = makeProject(owner.userId);
+      sessionAs(owner.userId, 'otherowner@corp.com');
+
+      const result = (await membersPostHandler(
+        createTestEvent({ slug: project.slug }, { kind: 'eip155', identifier: address })
+      )) as { ok: boolean };
+      expect(result.ok).toBe(true);
+    });
+
+    it('still allows inviting an unseen wallet address', async () => {
+      const owner = resolveIdentity(
+        { provider: 'google', subject: 'post-owner-wallet-new', email: 'newowner@corp.com' },
+        null
+      );
+      const project = makeProject(owner.userId);
+      sessionAs(owner.userId, 'newowner@corp.com');
+
+      const result = (await membersPostHandler(
+        createTestEvent(
+          { slug: project.slug },
+          { kind: 'eip155', identifier: '0x6666666666666666666666666666666666666666' }
+        )
+      )) as { ok: boolean };
+      expect(result.ok).toBe(true);
+    });
+
+    it('does not confuse an emailless admin with an invite that has no match', async () => {
+      // A wallet-only owner has users.email = NULL; the admin check must not
+      // treat that as matching an ordinary email invite.
+      const owner = resolveIdentity(
+        { provider: 'eip155', subject: '0x1010101010101010101010101010101010101010' },
+        null
+      );
+      const project = makeProject(owner.userId);
+      sessionAs(owner.userId, null);
+
+      const result = (await membersPostHandler(
+        createTestEvent({ slug: project.slug }, { email: 'guest@corp.com' })
+      )) as { ok: boolean };
+      expect(result.ok).toBe(true);
+    });
+  });
 });

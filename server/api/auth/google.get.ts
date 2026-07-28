@@ -24,7 +24,13 @@ export default defineOAuthGoogleEventHandler({
       await setUserSession(event, { user: row });
     } catch (error) {
       console.error('Google OAuth callback failed after token exchange:', error);
-      return sendRedirect(event, '/?auth_error=1');
+
+      // resolveIdentity's 409 is the only failure here the user can act on
+      // ("this Google account is linked to another account, sign out first"),
+      // so it gets its own param and its own message on the landing page rather
+      // than being flattened into the generic try-again text.
+      const statusCode = (error as { statusCode?: number } | null)?.statusCode;
+      return sendRedirect(event, statusCode === 409 ? '/?auth_error=linked' : '/?auth_error=1');
     }
     return sendRedirect(event, '/dashboard');
   },

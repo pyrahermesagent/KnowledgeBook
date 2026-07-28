@@ -2,7 +2,13 @@
 import { BookOpen, PenLine, Zap, Palette } from '@lucide/vue';
 
 const { loggedIn, user } = useUserSession();
-const authError = computed(() => Boolean(useRoute().query.auth_error));
+// 'linked' is server/api/auth/google.get.ts's marker for resolveIdentity's 409:
+// the Google account is already attached to a different KnowledgeBook account.
+// Any other value is the generic failure.
+const authError = computed(() => {
+  const value = useRoute().query.auth_error;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+});
 </script>
 
 <template>
@@ -16,7 +22,11 @@ const authError = computed(() => Boolean(useRoute().query.auth_error));
     </header>
 
     <main class="hero">
-      <p v-if="authError" class="auth-error">
+      <p v-if="authError === 'linked'" class="auth-error">
+        That Google account is already a login method for a different KnowledgeBook account. Sign
+        out of that account first, then link it here.
+      </p>
+      <p v-else-if="authError" class="auth-error">
         Sign-in failed on our side — please try again. If it keeps happening, the server logs have
         the details.
       </p>

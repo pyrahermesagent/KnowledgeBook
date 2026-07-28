@@ -1,6 +1,35 @@
 import { getAdapter } from '#utils/auth/chains';
 import { WALLET_PROVIDERS, type WalletProvider } from '#utils/auth/types';
 
+/**
+ * Same shape the endpoint used before member kinds existed. `identifier.includes('@')`
+ * replaced it during the rewrite, which accepted the literal string "@" as a member.
+ */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * True when this identifier is the project admin.
+ *
+ * The admin already has full access and is rendered separately from the member
+ * list, so adding them produces a person who appears twice in the roster. For a
+ * wallet kind that means an address whose identity resolves to the owner's
+ * account — the same person reached by a different login method.
+ */
+function isProjectAdmin(ownerId: number, kind: string, identifier: string): boolean {
+  const db = useDb();
+
+  if (kind === 'email') {
+    const owner = db.prepare('SELECT email FROM users WHERE id = ?').get(ownerId) as
+      { email: string | null } | undefined;
+    return Boolean(owner?.email) && normalizeEmail(owner!.email!) === identifier;
+  }
+
+  const identity = db
+    .prepare('SELECT user_id FROM user_identities WHERE provider = ? AND subject = ?')
+    .get(kind, identifier) as { user_id: number } | undefined;
+  return identity?.user_id === ownerId;
+}
+
 export default defineEventHandler(async (event) => {
   // requireProjectAccess, not Admin: any member manages members in this product
   // ("Everyone below can edit this project and manage members" — the panel's own
@@ -22,7 +51,7 @@ export default defineEventHandler(async (event) => {
   let identifier: string;
   if (kind === 'email') {
     identifier = normalizeEmail(raw);
-    if (!identifier.includes('@')) {
+    if (!EMAIL_PATTERN.test(identifier)) {
       throw createError({ statusCode: 400, message: 'That is not a valid email address' });
     }
   } else if (WALLET_PROVIDERS.includes(kind as WalletProvider)) {
@@ -31,6 +60,13 @@ export default defineEventHandler(async (event) => {
     identifier = getAdapter(kind).canonicalize(raw.trim());
   } else {
     throw createError({ statusCode: 400, message: `Unsupported member kind: ${kind}` });
+  }
+
+  if (isProjectAdmin(project.owner_id, kind, identifier)) {
+    throw createError({
+      statusCode: 400,
+      message: 'That person is the project admin and already has access',
+    });
   }
 
   try {

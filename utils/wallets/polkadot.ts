@@ -23,6 +23,10 @@ export const polkadotConnector: WalletConnector = {
   provider: 'polkadot',
   label: 'Polkadot',
   installUrl: 'https://polkadot.js.org/extension/',
+  // web3Enable() below opens the extension's authorization dialog, so discovery
+  // here must be driven by an explicit user action — never on mount. See
+  // WalletConnector.passiveDiscovery and composables/useWalletAuth.ts.
+  passiveDiscovery: false,
 
   async discover(): Promise<DetectedWallet[]> {
     if (!import.meta.client) return [];

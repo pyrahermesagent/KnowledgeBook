@@ -34,6 +34,9 @@ export const eip155Connector: WalletConnector = {
   provider: 'eip155',
   label: 'Ethereum',
   installUrl: 'https://metamask.io/download/',
+  // The EIP-6963 request/announce exchange is between the page and the
+  // extension; no wallet shows the user anything.
+  passiveDiscovery: true,
 
   async discover(): Promise<DetectedWallet[]> {
     if (!import.meta.client) return [];

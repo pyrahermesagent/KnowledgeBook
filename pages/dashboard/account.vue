@@ -14,13 +14,27 @@ interface Identity {
 }
 
 const { data, refresh } = await useFetch<{ identities: Identity[] }>('/api/account/identities');
-const { connectors, detected, discoverAll, signIn, pending, error } = useWalletAuth();
+const {
+  connectors,
+  detected,
+  discovered,
+  discovering,
+  discover,
+  discoverAll,
+  signIn,
+  pending,
+  error,
+} = useWalletAuth();
 const message = ref<string | null>(null);
 const removing = ref<number | null>(null);
 
 // `signIn` throws for any walletId that discovery hasn't surfaced yet — see
-// composables/useWalletAuth.ts. Discovering on mount and only ever rendering
-// wallets pulled from `detected` keeps every click below valid.
+// composables/useWalletAuth.ts. Discovering and only ever rendering wallets
+// pulled from `detected` keeps every click below valid.
+//
+// discoverAll() covers only the passive connectors. Polkadot's discovery opens
+// the extension's permission dialog, so it waits for the "Connect extension"
+// button below rather than firing at everyone who opens this page.
 onMounted(discoverAll);
 
 const LABELS: Record<string, string> = {
@@ -115,25 +129,42 @@ async function unlink(id: number) {
 
     <div v-for="connector in connectors" :key="connector.provider" class="link-group">
       <span class="link-label">{{ connector.label }}</span>
+
+      <template v-if="discovered[connector.provider]">
+        <button
+          v-for="wallet in detected[connector.provider] || []"
+          :key="wallet.id"
+          type="button"
+          class="btn btn-sm"
+          :disabled="pending !== null"
+          @click="link(connector.provider, wallet.id)"
+        >
+          {{ pending === `${connector.provider}:${wallet.id}` ? 'Signing…' : wallet.name }}
+        </button>
+        <a
+          v-if="!(detected[connector.provider] || []).length"
+          :href="connector.installUrl"
+          target="_blank"
+          rel="noopener"
+          class="muted install-link"
+        >
+          none detected — install →
+        </a>
+      </template>
+
+      <!-- Not discovered yet: this connector asks the extension for permission
+           when it discovers, so the user has to ask for it first. -->
       <button
-        v-for="wallet in detected[connector.provider] || []"
-        :key="wallet.id"
+        v-else
         type="button"
         class="btn btn-sm"
-        :disabled="pending !== null"
-        @click="link(connector.provider, wallet.id)"
+        :disabled="discovering !== null"
+        @click="discover(connector.provider)"
       >
-        {{ pending === `${connector.provider}:${wallet.id}` ? 'Signing…' : wallet.name }}
+        {{
+          discovering === connector.provider ? 'Waiting for the extension…' : 'Connect extension'
+        }}
       </button>
-      <a
-        v-if="!(detected[connector.provider] || []).length"
-        :href="connector.installUrl"
-        target="_blank"
-        rel="noopener"
-        class="muted install-link"
-      >
-        none detected — install →
-      </a>
     </div>
 
     <p class="reach-note">

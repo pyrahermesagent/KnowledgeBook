@@ -1,22 +1,50 @@
 <script setup lang="ts">
 import { ChevronDown } from '@lucide/vue';
 
-const { connectors, detected, discoverAll, signIn, pending, error } = useWalletAuth();
+const {
+  connectors,
+  detected,
+  discovered,
+  discovering,
+  discover,
+  discoverAll,
+  signIn,
+  pending,
+  error,
+} = useWalletAuth();
 const { loggedIn } = useUserSession();
 
 const open = ref<string | null>(null);
 
 // `signIn` throws for any walletId that discovery hasn't surfaced yet — see
-// composables/useWalletAuth.ts. Discovering on mount and only ever rendering
-// wallets pulled from `detected` keeps every click below valid.
+// composables/useWalletAuth.ts. Discovering and only ever rendering wallets
+// pulled from `detected` keeps every click below valid.
+//
+// discoverAll() covers only the connectors whose discovery is passive. Polkadot
+// is discovered in choose() instead: web3Enable() opens the extension's
+// permission dialog, and this panel is on the public landing page — running it
+// on mount popped that dialog at every visitor with the extension installed,
+// before they had clicked anything.
 onMounted(discoverAll);
 
-function choose(provider: string): void {
-  open.value = open.value === provider ? null : provider;
+async function choose(provider: string): Promise<void> {
+  const next = open.value === provider ? null : provider;
+  open.value = next;
+
+  if (next && !discovered.value[next] && discovering.value !== next) {
+    await discover(next);
+  }
 }
 
 function walletsFor(provider: string) {
   return detected.value[provider] || [];
+}
+
+/** What the collapsed row says on its right-hand side. */
+function statusFor(provider: string): string {
+  if (discovering.value === provider) return 'checking…';
+  if (!discovered.value[provider]) return 'connect';
+  return String(walletsFor(provider).length || 'none detected');
 }
 
 async function pick(provider: string, walletId: string): Promise<void> {
@@ -62,9 +90,7 @@ async function pick(provider: string, walletId: string): Promise<void> {
         >
           <span>{{ connector.label }}</span>
           <span class="signin-chain-right">
-            <span class="signin-count">
-              {{ walletsFor(connector.provider).length || 'none detected' }}
-            </span>
+            <span class="signin-count">{{ statusFor(connector.provider) }}</span>
             <ChevronDown
               :size="16"
               class="signin-chevron"
@@ -74,6 +100,10 @@ async function pick(provider: string, walletId: string): Promise<void> {
         </button>
 
         <div v-if="open === connector.provider" class="signin-wallets">
+          <p v-if="discovering === connector.provider" class="signin-discovering">
+            Waiting for the extension…
+          </p>
+
           <button
             v-for="wallet in walletsFor(connector.provider)"
             :key="wallet.id"
@@ -93,7 +123,7 @@ async function pick(provider: string, walletId: string): Promise<void> {
           </button>
 
           <a
-            v-if="!walletsFor(connector.provider).length"
+            v-if="discovered[connector.provider] && !walletsFor(connector.provider).length"
             :href="connector.installUrl"
             target="_blank"
             rel="noopener"
@@ -224,6 +254,12 @@ async function pick(provider: string, walletId: string): Promise<void> {
   display: block;
   font-size: 13px;
   color: var(--text-muted);
+  padding: 8px 12px;
+}
+.signin-discovering {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
   padding: 8px 12px;
 }
 .signin-note {

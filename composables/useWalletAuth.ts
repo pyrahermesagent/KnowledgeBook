@@ -32,6 +32,9 @@ export function isExpiredChallengeError(e: unknown): boolean {
  */
 export function useWalletAuth() {
   const detected = ref<Record<string, DetectedWallet[]>>({});
+  /** Which providers have finished a discovery pass, so "none detected" is honest. */
+  const discovered = ref<Record<string, boolean>>({});
+  const discovering = ref<string | null>(null);
   const pending = ref<string | null>(null);
   const error = ref<string | null>(null);
   const { fetch: refreshSession } = useUserSession();
@@ -40,11 +43,26 @@ export function useWalletAuth() {
     const connector = CONNECTORS.find((c) => c.provider === provider);
     if (!connector) return;
 
-    detected.value = { ...detected.value, [provider]: await connector.discover() };
+    discovering.value = provider;
+    try {
+      detected.value = { ...detected.value, [provider]: await connector.discover() };
+      discovered.value = { ...discovered.value, [provider]: true };
+    } finally {
+      if (discovering.value === provider) discovering.value = null;
+    }
   }
 
+  /**
+   * Discovery for every connector whose discover() is passive.
+   *
+   * Polkadot's is not — web3Enable() opens the extension's permission dialog —
+   * so it is left out and must be triggered by the user asking for it, or every
+   * visitor to the public landing page gets a popup before clicking anything.
+   */
   async function discoverAll(): Promise<void> {
-    await Promise.all(CONNECTORS.map((c) => discover(c.provider)));
+    await Promise.all(
+      CONNECTORS.filter((c) => c.passiveDiscovery).map((c) => discover(c.provider))
+    );
   }
 
   /**
@@ -55,9 +73,10 @@ export function useWalletAuth() {
    * EIP-6963 `providers` map, Polkadot's `accountCache`) and `connect`/
    * `signMessage` only recognize ids drawn from that cache — a walletId that
    * was never surfaced by `discover()` throws a plain Error instead of
-   * connecting. The UI (Tasks 15-16) satisfies this by calling
-   * `discoverAll()` on mount and only rendering discovered wallets; any
-   * future caller must do the same.
+   * connecting. The UI satisfies this by calling `discoverAll()` on mount for
+   * the passive connectors, calling `discover(provider)` when the user opens a
+   * non-passive one, and only ever rendering wallets pulled from `detected`;
+   * any future caller must do the same.
    */
   async function signIn(provider: string, walletId: string): Promise<boolean> {
     const connector = CONNECTORS.find((c) => c.provider === provider);
@@ -121,5 +140,15 @@ export function useWalletAuth() {
     }
   }
 
-  return { connectors: CONNECTORS, detected, discover, discoverAll, signIn, pending, error };
+  return {
+    connectors: CONNECTORS,
+    detected,
+    discovered,
+    discovering,
+    discover,
+    discoverAll,
+    signIn,
+    pending,
+    error,
+  };
 }

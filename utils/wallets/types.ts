@@ -29,6 +29,15 @@ export interface WalletConnector {
   provider: 'eip155' | 'solana' | 'polkadot';
   label: string;
   installUrl: string;
+  /**
+   * True when `discover()` only observes what is installed, without the wallet
+   * asking the user for anything. Those connectors are safe to run on mount.
+   *
+   * Polkadot's is not passive: `web3Enable()` is the extension's authorization
+   * request and opens an "allow this site to access your accounts?" dialog, so
+   * it must wait for the user to ask for it.
+   */
+  passiveDiscovery: boolean;
   discover(): Promise<DetectedWallet[]>;
   connect(walletId: string): Promise<WalletConnection>;
   signMessage(walletId: string, address: string, message: string): Promise<string>;

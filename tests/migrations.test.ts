@@ -103,7 +103,13 @@ function createPreMigrationDb(): string {
     INSERT INTO projects (id, owner_id, slug, name, owner_wallet_address) VALUES
       (12, 1, 'wallet-owned-docs',  'Wallet Owned Docs',  '${MIXED_CASE_WALLET}'),
       (13, 5, 'orphan-wallet-docs', 'Orphan Wallet Docs', '${ORPHAN_WALLET}');
-    INSERT INTO project_members (project_id, email) VALUES (10, 'bob@corp.com');
+    -- Project 10 also gets a mixed-case email member. The app normalizes every
+    -- email through normalizeEmail() before storing or matching it, but a
+    -- manually seeded legacy row could be any casing, and migration 4 used to
+    -- copy the email column verbatim — silently locking that person out.
+    INSERT INTO project_members (project_id, email) VALUES
+      (10, 'bob@corp.com'),
+      (10, 'Carol.Danvers@Corp.com');
     -- Project 11 gets the mixed-case wallet as a member too, so migration 4's
     -- fold (not just migration 3's identity creation) has a mixed-case row to
     -- lowercase.
@@ -255,12 +261,17 @@ describe('wallet fold-in', () => {
     const db = useDb();
 
     const members = db
-      .prepare('SELECT kind, identifier FROM project_members WHERE project_id = 10 ORDER BY kind')
+      .prepare(
+        'SELECT kind, identifier FROM project_members WHERE project_id = 10 ORDER BY kind, identifier'
+      )
       .all() as { kind: string; identifier: string }[];
 
     expect(members).toEqual([
       { kind: 'eip155', identifier: '0x1111111111111111111111111111111111111111' },
       { kind: 'email', identifier: 'bob@corp.com' },
+      // Lowercased on the way across. The literal is hardcoded rather than
+      // computed from the seed, so a dropped lower() cannot pass by symmetry.
+      { kind: 'email', identifier: 'carol.danvers@corp.com' },
     ]);
   });
 
@@ -336,5 +347,143 @@ describe('wallet fold-in', () => {
       owner_id: number;
     };
     expect(project.owner_id).toBe(5);
+  });
+});
+
+/**
+ * A database as an already-migrated instance looks: current schema, versions
+ * 1-4 recorded as applied. Migration 4 has therefore already run — with the
+ * body that copied `email` verbatim — so fixing that body helps nobody here.
+ * Migration 5 is the repair for these.
+ */
+function createPostMigration4Db(members: [number, string][]): string {
+  const dir = mkdtempSync(join(tmpdir(), 'kb-postmig4-'));
+  tempDirs.push(dir);
+  const path = join(dir, 'post4.db');
+  const db = new Database(path);
+
+  db.exec(`
+    CREATE TABLE schema_version (
+      version    INTEGER PRIMARY KEY,
+      name       TEXT NOT NULL,
+      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    INSERT INTO schema_version (version, name) VALUES
+      (1, 'create user_identities'),
+      (2, 'rebuild users without google_id and with nullable email'),
+      (3, 'fold wallet_users into users and user_identities'),
+      (4, 'rekey project_members and drop superseded tables');
+
+    CREATE TABLE users (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      email      TEXT,
+      name       TEXT NOT NULL DEFAULT '',
+      avatar     TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE projects (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      slug         TEXT NOT NULL UNIQUE,
+      name         TEXT NOT NULL,
+      description  TEXT NOT NULL DEFAULT '',
+      accent_color TEXT NOT NULL DEFAULT '#346ddb',
+      icon_url     TEXT NOT NULL DEFAULT '',
+      created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE project_members (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      kind       TEXT NOT NULL,
+      identifier TEXT NOT NULL,
+      role       TEXT NOT NULL DEFAULT 'member',
+      added_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (project_id, kind, identifier)
+    );
+
+    INSERT INTO users (id, email, name) VALUES (1, 'alice@corp.com', 'Alice');
+    INSERT INTO projects (id, owner_id, slug, name) VALUES (20, 1, 'already-migrated', 'Docs');
+  `);
+
+  const insert = db.prepare(
+    'INSERT INTO project_members (project_id, kind, identifier) VALUES (?, ?, ?)'
+  );
+  for (const [projectId, identifier] of members) insert.run(projectId, 'email', identifier);
+
+  db.close();
+  return path;
+}
+
+describe('email member identifier normalization (migration 5)', () => {
+  it('lowercases a mixed-case email member on an already-migrated database', () => {
+    setRuntimeConfig({
+      databasePath: createPostMigration4Db([[20, 'Carol.Danvers@Corp.com']]),
+    });
+    const db = useDb();
+
+    const rows = db
+      .prepare("SELECT identifier FROM project_members WHERE kind = 'email'")
+      .all() as { identifier: string }[];
+
+    expect(rows.map((r) => r.identifier)).toEqual(['carol.danvers@corp.com']);
+  });
+
+  it('collapses a mixed-case row onto its existing lowercase twin instead of failing the UNIQUE', () => {
+    // UNIQUE (project_id, kind, identifier) would reject a bare UPDATE here.
+    // Both rows are the same person, so one row must survive — and the
+    // migration must not throw, which would abort every later boot.
+    setRuntimeConfig({
+      databasePath: createPostMigration4Db([
+        [20, 'dave@corp.com'],
+        [20, 'Dave@Corp.com'],
+      ]),
+    });
+    const db = useDb();
+
+    const rows = db
+      .prepare("SELECT identifier FROM project_members WHERE kind = 'email'")
+      .all() as { identifier: string }[];
+
+    expect(rows.map((r) => r.identifier)).toEqual(['dave@corp.com']);
+  });
+
+  it('leaves wallet identifiers alone', () => {
+    const path = createPostMigration4Db([]);
+    const seed = new Database(path);
+    // Solana addresses are base58 and case-sensitive — lowercasing one would
+    // destroy the identity it points at.
+    seed
+      .prepare(
+        "INSERT INTO project_members (project_id, kind, identifier) VALUES (20, 'solana', ?)"
+      )
+      .run('SoLaNaAddress11111111111111111111111111111');
+    seed.close();
+
+    setRuntimeConfig({ databasePath: path });
+    const db = useDb();
+
+    const row = db
+      .prepare("SELECT identifier FROM project_members WHERE kind = 'solana'")
+      .get() as { identifier: string };
+    expect(row.identifier).toBe('SoLaNaAddress11111111111111111111111111111');
+  });
+
+  it('is a no-op on a second boot', () => {
+    const path = createPostMigration4Db([[20, 'Erin@Corp.com']]);
+    setRuntimeConfig({ databasePath: path });
+    useDb();
+    closeDb();
+
+    setRuntimeConfig({ databasePath: path });
+    const db = useDb();
+
+    const rows = db
+      .prepare("SELECT identifier FROM project_members WHERE kind = 'email'")
+      .all() as { identifier: string }[];
+    expect(rows.map((r) => r.identifier)).toEqual(['erin@corp.com']);
+
+    const applied = db.prepare('SELECT COUNT(*) AS n FROM schema_version').get() as { n: number };
+    expect(applied.n).toBe(5);
   });
 });

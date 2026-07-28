@@ -57,10 +57,13 @@ export const MIGRATIONS: Migration[] = [
       );
       if (!cols.includes('google_id')) return; // already rebuilt
 
-      // foreign_keys is a connection pragma and cannot be changed inside a
-      // transaction, so the caller's transaction is paused around the rebuild.
-      // legacy_alter_table keeps ALTER TABLE ... RENAME from rewriting the
-      // references in other tables' FK clauses.
+      // Other tables carry REFERENCES users(id) clauses. SQLite rewrites those
+      // to follow an ALTER TABLE ... RENAME only while foreign_keys is ON, so
+      // what keeps this rebuild safe is runMigrations turning foreign_keys OFF
+      // for the whole run — it is a connection pragma and cannot be toggled
+      // inside a transaction, hence the toggle living out there rather than
+      // here. (legacy_alter_table is never set; an earlier version of this
+      // comment credited it.)
       db.exec(`
         CREATE TABLE users_new (
           id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -151,8 +154,13 @@ export const MIGRATIONS: Migration[] = [
             added_at   TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE (project_id, kind, identifier)
           );
-          INSERT INTO project_members_new (id, project_id, kind, identifier, role, added_at)
-            SELECT id, project_id, 'email', email, 'member', added_at FROM project_members;
+          -- lower(email): the app stores and matches email members through
+          -- normalizeEmail(), so a manually seeded mixed-case legacy row would
+          -- otherwise never match its owner again. OR IGNORE because the legacy
+          -- UNIQUE (project_id, email) was case-sensitive: 'Bob@x' and 'bob@x'
+          -- could coexist there and collapse to one row here.
+          INSERT OR IGNORE INTO project_members_new (id, project_id, kind, identifier, role, added_at)
+            SELECT id, project_id, 'email', lower(email), 'member', added_at FROM project_members;
           DROP TABLE project_members;
           ALTER TABLE project_members_new RENAME TO project_members;
         `);
@@ -186,6 +194,35 @@ export const MIGRATIONS: Migration[] = [
       db.exec(
         'CREATE INDEX IF NOT EXISTS idx_project_members_lookup ON project_members (project_id, kind, identifier)'
       );
+    },
+  },
+  {
+    version: 5,
+    name: 'lowercase email member identifiers',
+    up: (db) => {
+      // Migration 4 originally copied `email` verbatim. It has already run on
+      // every live database, so fixing its body only helps databases that have
+      // not migrated yet — this step repairs the ones that have. It is written
+      // to be a no-op when there is nothing left to lowercase, so running it on
+      // a database migrated by the fixed version 4 changes nothing.
+      //
+      // Collisions first: UNIQUE (project_id, kind, identifier) would reject the
+      // UPDATE if a project already held the lowercase twin of a mixed-case row.
+      // Both rows mean the same person, so the mixed-case one is the one to drop.
+      db.exec(`
+        DELETE FROM project_members
+        WHERE kind = 'email'
+          AND identifier <> lower(identifier)
+          AND EXISTS (
+            SELECT 1 FROM project_members other
+            WHERE other.project_id = project_members.project_id
+              AND other.kind = 'email'
+              AND other.identifier = lower(project_members.identifier)
+          );
+        UPDATE project_members
+        SET identifier = lower(identifier)
+        WHERE kind = 'email' AND identifier <> lower(identifier);
+      `);
     },
   },
 ];

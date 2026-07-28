@@ -58,7 +58,8 @@ function errorText(value: string) {
   return { content: [{ type: 'text' as const, text: value }], isError: true };
 }
 
-function projectStructure(project: ProjectRow): string {
+/** The section/page tree the get_project tool returns. Exported for tests. */
+export function projectStructure(project: ProjectRow): string {
   const db = useDb();
   const sections = db
     .prepare('SELECT id, title FROM sections WHERE project_id = ? ORDER BY position')
@@ -82,7 +83,8 @@ function projectStructure(project: ProjectRow): string {
   return lines.join('\n');
 }
 
-function getProjectBySlugSafe(slug: string): ProjectRow | undefined {
+/** Project lookup shared by every tool that takes a project slug. Exported for tests. */
+export function getProjectBySlugSafe(slug: string): ProjectRow | undefined {
   return useDb().prepare('SELECT * FROM projects WHERE slug = ?').get(slug.trim()) as
     ProjectRow | undefined;
 }
@@ -113,8 +115,15 @@ async function authenticateWriteAccess(event: H3Event) {
  * Delegates to the identity-aware isProjectMember (#utils/auth) so a wallet
  * invite here matches the same way it does everywhere else in the app —
  * this function used to check only email-kind rows directly.
+ *
+ * Exported for tests (tests/mcp-write-access.test.ts), which is the only
+ * coverage standing between this and a revert to `project_members WHERE email = ?`.
  */
-function hasProjectWriteAccess(projectId: number, userId: number, email: string | null): boolean {
+export function hasProjectWriteAccess(
+  projectId: number,
+  userId: number,
+  email: string | null
+): boolean {
   const db = useDb();
 
   // Check if user is project owner

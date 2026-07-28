@@ -25,6 +25,13 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // Overridable via NUXT_* environment variables (see .env.example)
     databasePath: '.data/knowledgebook.db',
+    // nuxt-auth-utils already defaults the session cookie to SameSite=Lax; it is
+    // pinned here because the auth model now depends on it. A wallet login POST
+    // links the signing wallet to whatever session the request carries, so a
+    // cross-site POST that arrived with the victim's cookie would permanently
+    // attach an attacker's wallet to the victim's account. Lax is what stops the
+    // cookie riding along — too load-bearing to leave as somebody's default.
+    session: { cookie: { sameSite: 'lax' } },
     s3: {
       endpoint: '',
       region: '',

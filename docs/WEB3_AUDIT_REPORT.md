@@ -6,6 +6,28 @@
 
 ---
 
+> **Superseded in part (2026-07-27).** The multi-chain wallet authentication work
+> replaced the single-chain wallet login this report audited. Specifically:
+>
+> - **"1. Auth Wallet (`server/utils/auth-wallet.ts`)"** — that file no longer
+>   exists. Wallet sign-in now lives in `server/utils/auth/` behind a per-chain
+>   adapter (`chains/{eip155,solana,polkadot}.ts`), covering Ethereum, Solana and
+>   Polkadot rather than Ethereum alone. Its "Gaps" list is closed: there is a UI
+>   (`components/auth/SignInPanel.vue`, `pages/dashboard/account.vue`) and chain
+>   ids are configurable via `runtimeConfig.web3.evmChainIds`.
+> - **"Database Schema Audit → `wallet_users` / `wallet_project_members`"** —
+>   both tables were dropped by migration 4 in `server/utils/migrations.ts`.
+>   Wallet users are ordinary rows in `users`, reached through `user_identities`;
+>   wallet invites are `project_members` rows with `kind = 'eip155'` (or
+>   `'solana'` / `'polkadot'`) rather than a table of their own.
+> - **"Recommendations Summary → Wallet Authentication / Multi-Chain"** — both
+>   are implemented; the rows below still say otherwise.
+>
+> The token validation, NFT ownership and token gating sections were not touched
+> by that work and still describe the code as it stands.
+
+---
+
 ## Executive Summary
 
 KnowledgeBook has a foundational Web3 implementation focused on wallet authentication and token-based access control. This audit identifies gaps, opportunities for monetization, and governance models.

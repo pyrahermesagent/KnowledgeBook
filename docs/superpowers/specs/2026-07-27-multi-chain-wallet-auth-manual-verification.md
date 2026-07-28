@@ -27,11 +27,14 @@ login works."
   meaningfully testable with just one installed extension. Sections tagged
   **Needs 2 accounts** require either a second wallet/Google account or a second
   browser profile — see the note at the end of each.
-- One thing that will _not_ be on the running app: `components/wallet/ConnectButton.vue`
-  and `components/wallet/WalletModal.vue` exist in the codebase but are not mounted on
-  any page in this feature. Don't look for them — sign-in happens through the panel
-  embedded directly in the landing page (`pages/index.vue`) and linking happens
-  through the inline UI on `pages/dashboard/account.vue`.
+- Don't look for a wallet modal or a standalone connect button:
+  `components/wallet/ConnectButton.vue` and `components/wallet/WalletModal.vue` were
+  deleted in the final review pass because nothing imported them. Sign-in happens
+  through the panel embedded directly in the landing page (`pages/index.vue`) and
+  linking happens through the inline UI on `pages/dashboard/account.vue`.
+- Polkadot discovery is deliberately lazy: the extension's "allow this site to
+  access your accounts?" dialog must appear only after you expand the **Polkadot**
+  row (or press **Connect extension** on the account page), never on page load.
 
 ---
 

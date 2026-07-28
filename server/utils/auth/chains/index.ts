@@ -10,13 +10,18 @@ const ADAPTERS: Record<WalletProvider, ChainAdapter> = {
   polkadot: polkadotAdapter,
 };
 
-/** Throws a 400 for anything that is not a supported ecosystem. */
+/**
+ * Throws a 400 for anything that is not a supported ecosystem.
+ *
+ * Object.hasOwn rather than a plain lookup: `ADAPTERS['constructor']` resolves
+ * up the prototype chain and returns Object, so an inherited key used to slip
+ * past the check and be handed back as if it were an adapter.
+ */
 export function getAdapter(provider: string): ChainAdapter {
-  const adapter = ADAPTERS[provider as WalletProvider];
-  if (!adapter) {
+  if (!Object.hasOwn(ADAPTERS, provider)) {
     throw createError({ statusCode: 400, message: `Unsupported wallet provider: ${provider}` });
   }
-  return adapter;
+  return ADAPTERS[provider as WalletProvider];
 }
 
 export { eip155Adapter, solanaAdapter, polkadotAdapter };

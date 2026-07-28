@@ -115,24 +115,32 @@ export function listIdentities(userId: number): IdentityRow[] {
 export function unlinkIdentity(userId: number, identityId: number): void {
   const db = useDb();
 
-  const identity = db
-    .prepare('SELECT id, user_id FROM user_identities WHERE id = ?')
-    .get(identityId) as { id: number; user_id: number } | undefined;
+  // Ownership and the last-login-method guard both ride on the DELETE itself.
+  // A check-then-delete left a window in which two tabs removing the account's
+  // two remaining identities could each see a count of 2 and both delete,
+  // leaving the account with no way to sign in.
+  const { changes } = db
+    .prepare(
+      `DELETE FROM user_identities
+       WHERE id = ? AND user_id = ?
+         AND (SELECT COUNT(*) FROM user_identities WHERE user_id = ?) > 1`
+    )
+    .run(identityId, userId, userId);
 
-  if (!identity || identity.user_id !== userId) {
+  if (changes > 0) return;
+
+  // Nothing was deleted, so work out which of the two guards refused: not
+  // theirs / gone (404) or their last one (400).
+  const identity = db
+    .prepare('SELECT id FROM user_identities WHERE id = ? AND user_id = ?')
+    .get(identityId, userId) as { id: number } | undefined;
+
+  if (!identity) {
     throw createError({ statusCode: 404, message: 'Login method not found' });
   }
 
-  const { n } = db
-    .prepare('SELECT COUNT(*) AS n FROM user_identities WHERE user_id = ?')
-    .get(userId) as { n: number };
-
-  if (n <= 1) {
-    throw createError({
-      statusCode: 400,
-      message: 'This is your last login method — you would not be able to sign in again.',
-    });
-  }
-
-  db.prepare('DELETE FROM user_identities WHERE id = ?').run(identityId);
+  throw createError({
+    statusCode: 400,
+    message: 'This is your last login method — you would not be able to sign in again.',
+  });
 }

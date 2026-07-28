@@ -188,4 +188,56 @@ describe('unlinkIdentity', () => {
       expect((error as { statusCode?: number }).statusCode).toBe(404);
     }
   });
+
+  // The guard now rides on the DELETE statement itself rather than a separate
+  // count read, so these pin that the two error codes still tell apart "not
+  // yours / gone" from "your last one".
+  it('reports a 404 for an identity id that does not exist at all', () => {
+    const { userId } = resolveIdentity(
+      { provider: 'google', subject: 'google-sub-alice', email: 'alice@corp.com' },
+      null
+    );
+    resolveIdentity(wallet, userId);
+
+    try {
+      unlinkIdentity(userId, 987654);
+      expect.unreachable('expected unlinkIdentity to throw');
+    } catch (error) {
+      expect((error as { statusCode?: number }).statusCode).toBe(404);
+    }
+    expect(listIdentities(userId)).toHaveLength(2);
+  });
+
+  it('reports a 400, not a 404, for their own last login method', () => {
+    const { userId } = resolveIdentity(wallet, null);
+    const [only] = listIdentities(userId);
+
+    try {
+      unlinkIdentity(userId, only.id);
+      expect.unreachable('expected unlinkIdentity to throw');
+    } catch (error) {
+      expect((error as { statusCode?: number }).statusCode).toBe(400);
+    }
+  });
+
+  it('removes only the requested identity, leaving the others reachable', () => {
+    const { userId } = resolveIdentity(
+      { provider: 'google', subject: 'google-sub-alice', email: 'alice@corp.com' },
+      null
+    );
+    resolveIdentity(wallet, userId);
+    resolveIdentity(
+      { provider: 'polkadot', subject: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY' },
+      userId
+    );
+
+    const walletIdentity = listIdentities(userId).find((i) => i.provider === 'eip155')!;
+    unlinkIdentity(userId, walletIdentity.id);
+
+    expect(
+      listIdentities(userId)
+        .map((i) => i.provider)
+        .sort()
+    ).toEqual(['google', 'polkadot']);
+  });
 });

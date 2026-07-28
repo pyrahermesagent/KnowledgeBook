@@ -72,6 +72,24 @@ describe('getAdapter', () => {
     expect(caught).toBeInstanceOf(TestHttpError);
     expect((caught as TestHttpError).statusCode).toBe(400);
   });
+
+  it.each(['constructor', 'toString', 'hasOwnProperty', '__proto__'])(
+    'throws a 400 for the inherited key %s',
+    (provider) => {
+      // A plain `ADAPTERS[provider]` lookup walks the prototype chain, so
+      // getAdapter('constructor') returned Object — truthy, so it sailed past
+      // the check and was handed back as if it were a chain adapter.
+      let caught: unknown;
+      try {
+        getAdapter(provider);
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(TestHttpError);
+      expect((caught as TestHttpError).statusCode).toBe(400);
+    }
+  );
 });
 
 describe('getAuthConfig', () => {

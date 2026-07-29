@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { useRuntimeConfig } from '#imports';
+import { runMigrations } from './migrations';
 
 // Connection pool configuration
 const POOL_CONFIG = {
@@ -29,25 +30,43 @@ export function useDb(): Database.Database {
   // better-sqlite3 is synchronous and single-connection; concurrency comes from
   // the WAL pragmas below rather than a connection cache. (`cache: 'shared'` is
   // not a better-sqlite3 option and was silently ignored.)
-  dbPool = new Database(path, {
+  //
+  // Held in a local until the schema is known good. Assigning dbPool up front
+  // published a half-migrated handle: a migration that threw left every later
+  // useDb() call short-circuiting on `if (dbPool) return dbPool` and handing
+  // back a database somewhere between the old and new schema, with the failure
+  // visible only in the first request's 500.
+  const db = new Database(path, {
     fileMustExist: false,
   });
 
   // Configure WAL mode for better concurrency
-  dbPool.pragma('journal_mode = WAL');
-  dbPool.pragma('synchronous = NORMAL'); // Balance durability and performance
-  dbPool.pragma('foreign_keys = ON');
-  dbPool.pragma('busy_timeout = 5000'); // 5 second timeout
-  dbPool.pragma('cache_size = -64000'); // 64MB page cache
-  dbPool.pragma('temp_store = MEMORY');
+  db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = NORMAL'); // Balance durability and performance
+  db.pragma('foreign_keys = ON');
+  db.pragma('busy_timeout = 5000'); // 5 second timeout
+  db.pragma('cache_size = -64000'); // 64MB page cache
+  db.pragma('temp_store = MEMORY');
 
   // Enable multi-threading for better-sqlite3
   // Note: better-sqlite3 is sync-only, so we use shared cache mode
   // For true async operations, consider using better-sqlite3 with a worker pool
 
   // Initialize database schema
-  initSchema(dbPool);
+  try {
+    initSchema(db);
+  } catch (error) {
+    // Close and stay unpublished, so the next call retries from scratch (or the
+    // process dies loudly) rather than serving the half-migrated schema.
+    try {
+      db.close();
+    } catch {
+      // A close failure must not mask the migration error being rethrown.
+    }
+    throw error;
+  }
 
+  dbPool = db;
   return dbPool;
 }
 
@@ -86,8 +105,7 @@ function initSchema(db: Database.Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
-      google_id  TEXT NOT NULL UNIQUE,
-      email      TEXT NOT NULL,
+      email      TEXT,
       name       TEXT NOT NULL DEFAULT '',
       avatar     TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -119,9 +137,11 @@ function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS project_members (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-      email      TEXT NOT NULL,
+      kind       TEXT NOT NULL,
+      identifier TEXT NOT NULL,
+      role       TEXT NOT NULL DEFAULT 'member',
       added_at   TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE (project_id, email)
+      UNIQUE (project_id, kind, identifier)
     );
     CREATE TABLE IF NOT EXISTS pages (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -145,22 +165,6 @@ function initSchema(db: Database.Database): void {
       is_ai_edit         BOOLEAN NOT NULL DEFAULT 0,
       version_comment    TEXT,
       created_at         TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-    -- Wallet users table for Web3 authentication
-    CREATE TABLE IF NOT EXISTS wallet_users (
-      id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      wallet_address  TEXT NOT NULL UNIQUE,
-      chain_id        INTEGER NOT NULL DEFAULT 1,
-      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-    -- Wallet project members table for project access control
-    CREATE TABLE IF NOT EXISTS wallet_project_members (
-      id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      project_id      INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-      wallet_address  TEXT NOT NULL,
-      added_at        TEXT NOT NULL DEFAULT (datetime('now')),
-      role            TEXT NOT NULL DEFAULT 'member',
-      UNIQUE (project_id, wallet_address)
     );
     -- Token-gated projects configuration
     CREATE TABLE IF NOT EXISTS token_gated_projects (
@@ -219,7 +223,6 @@ function initSchema(db: Database.Database): void {
   ensureColumn(db, 'projects', 'text-muted', "TEXT NOT NULL DEFAULT '#6b7280'");
   ensureColumn(db, 'projects', 'border_color', "TEXT NOT NULL DEFAULT '#e5e8ec'");
   ensureColumn(db, 'projects', 'radius', 'INTEGER NOT NULL DEFAULT 8');
-  ensureColumn(db, 'projects', 'owner_wallet_address', 'TEXT');
   ensureColumn(db, 'pages', 'encrypted_content', 'TEXT');
   ensureColumn(db, 'pages', 'encryption_iv', 'TEXT');
   ensureColumn(db, 'pages', 'encryption_key_id', 'TEXT');
@@ -235,12 +238,13 @@ function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_encryption_keys_project ON encryption_keys (project_id);
     CREATE INDEX IF NOT EXISTS idx_encryption_keys_updated ON encryption_keys (updated_at);
     CREATE INDEX IF NOT EXISTS idx_user_encryption_access_user ON user_encryption_access (user_id, project_id);
-    CREATE INDEX IF NOT EXISTS idx_wallet_users_address ON wallet_users (wallet_address);
-    CREATE INDEX IF NOT EXISTS idx_wallet_project_access ON wallet_project_members (wallet_address, project_id);
     CREATE INDEX IF NOT EXISTS idx_token_gated_project ON token_gated_projects (project_id, token_contract);
     CREATE INDEX IF NOT EXISTS idx_nft_ownership_owner ON nft_project_ownership (owner_address);
     CREATE INDEX IF NOT EXISTS idx_nft_ownership_project ON nft_project_ownership (project_id);
   `);
+
+  // Rebuilds and data moves that ensureColumn cannot express.
+  runMigrations(db);
 }
 
 /**

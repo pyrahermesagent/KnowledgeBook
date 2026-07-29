@@ -16,8 +16,8 @@ describe('MCP search SQL', () => {
   beforeAll(() => {
     db = createTestDb();
     const userId = db
-      .prepare(`INSERT INTO users (google_id, email, name) VALUES (?,?,?) RETURNING id`)
-      .get('g-search', 'search@test.dev', 'Search') as { id: number };
+      .prepare(`INSERT INTO users (email, name) VALUES (?,?) RETURNING id`)
+      .get('search@test.dev', 'Search') as { id: number };
     const projectId = db
       .prepare(`INSERT INTO projects (owner_id, slug, name) VALUES (?,?,?) RETURNING id`)
       .get(userId.id, 'demo', 'Demo') as { id: number };

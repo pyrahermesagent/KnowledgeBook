@@ -6,7 +6,9 @@ projects with sections and pages, write in full markdown, and share them at a cl
 
 ## Features
 
-- **Google sign-in** — owners authenticate with their Google account (OAuth 2.0)
+- **Sign in with Google or a wallet** — Google (OAuth 2.0), or an Ethereum, Solana or
+  Polkadot wallet browser extension; every sign-in method resolves to one account (see
+  [Authentication](#authentication))
 - **Projects at `/<name>`** — each project gets its own public link
 - **Sections & pages** — organize content in a GitBook-style sidebar tree
 - **Import from GitBook** — paste a published GitBook site's URL and its whole
@@ -14,8 +16,8 @@ projects with sections and pages, write in full markdown, and share them at a cl
   and markdown exports; GitBook-specific syntax is converted to plain markdown)
 - **MCP server for AI agents** — every instance exposes its documentation over
   the Model Context Protocol at `/mcp` (see [AI agents](#ai-agents-mcp))
-- **Teams** — invite people to a project by their Google email; members edit
-  content and manage the member list, while the single non-removable admin
+- **Teams** — invite people to a project by Google email or by wallet address; members
+  edit content and manage the member list, while the single non-removable admin
   (the project creator) is the only one who can delete the project
 - **Full markdown** — tables, code blocks with syntax highlighting, images, quotes, lists
 - **Autosave** — edits are saved automatically with a live status indicator
@@ -48,6 +50,33 @@ All secrets live in `.env` (see [.env.example](.env.example)):
 | `NUXT_S3_ENDPOINT`, `NUXT_S3_REGION`, `NUXT_S3_BUCKET`, `NUXT_S3_ACCESS_KEY`, `NUXT_S3_SECRET_KEY` | Hetzner Object Storage (S3-compatible)                                                                                                                  |
 | `NUXT_S3_PUBLIC_URL`                                                                               | Optional public base URL for uploaded objects                                                                                                           |
 | `NUXT_UPLOADS_DIR`                                                                                 | Local-disk upload fallback directory                                                                                                                    |
+
+### Authentication
+
+Sign in with a Google account, or with an Ethereum, Solana or Polkadot wallet browser
+extension — e.g. MetaMask, Rabby or Coinbase Wallet (Ethereum), Phantom, Solflare or
+Backpack (Solana), and Talisman, SubWallet or polkadot.js (Polkadot). Every sign-in
+method resolves to **one account**: connecting a wallet while already signed in links it
+to the account you're signed into, and linked login methods are managed at
+`/dashboard/account`.
+
+Wallet sign-in uses browser extensions, so it needs a desktop browser or a wallet app's
+built-in browser. There is no WalletConnect/QR support, so a regular mobile browser
+can't use it.
+
+**Known limitation:** the account page has no "Link Google" control. Linking still works
+server-side — signing in with Google while holding a wallet session links the two to one
+account — but `server/api/auth/google.get.ts` always redirects to `/dashboard` on
+success, so a link button on the account page would just bounce the user away instead of
+leaving them there to see the result. A wallet-only user therefore has no in-page control
+to add a Google login today; the reverse (wallet added from an account already signed in
+with Google) works fully.
+
+| Variable                  | Purpose                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------- |
+| `NUXT_WEB3_EVM_CHAIN_IDS` | Comma-separated EIP-155 chain ids accepted at sign-in (default `1,10,137,8453,42161`) |
+| `NUXT_WEB3_APP_DOMAIN`    | Domain bound into every login message and re-checked server-side                      |
+| `NUXT_WEB3_APP_URI`       | URI bound into every login message                                                    |
 
 ## AI agents (MCP)
 

@@ -1,4 +1,3 @@
-import type { H3Event } from 'h3';
 import {
   validateErc20Balance,
   validateErc721Ownership,
@@ -81,30 +80,6 @@ export async function validateTokenAccess(
       hasAccess: false,
       reason: 'Token validation service unavailable. Please try again later.',
     };
-  }
-}
-
-/**
- * Middleware for token-gated access control
- */
-export async function tokenGateMiddleware(event: H3Event): Promise<void> {
-  const wallet = await getSessionWallet(event);
-  const slug = getRouterParam(event, 'slug')!;
-  const project = getProjectBySlug(slug);
-
-  if (!project) {
-    throw createError({ statusCode: 404, message: 'Project not found' });
-  }
-
-  if (wallet) {
-    const { hasAccess, reason } = await validateTokenAccess(wallet.wallet_address, project.id);
-
-    if (!hasAccess) {
-      throw createError({
-        statusCode: 403,
-        message: reason || 'Access restricted by token requirements',
-      });
-    }
   }
 }
 

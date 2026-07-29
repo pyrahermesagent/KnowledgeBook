@@ -18,6 +18,19 @@
 - **Canonical `subject` per provider:** `eip155` → `getAddress(a).toLowerCase()`; `solana` → base58 **case preserved**; `polkadot` → `encodeAddress(decodeAddress(a), 42)`; `google` → OAuth `sub`.
 - **Chain allowlist applies to `eip155` only.** Solana and Polkadot `chain_id` values are client-reported, stored for display, and never trusted for authorization.
 - **Table rebuilds must preserve primary key values** by copying `id` explicitly. `user_identities.user_id`, `projects.owner_id`, `user_encryption_access.user_id` and `page_versions.author_id` all reference `users(id)`.
+- **`@noble/curves` v2 subpath imports must carry the `.js` suffix.** The installed
+  2.2.0 exports `./ed25519.js` only; the bare `@noble/curves/ed25519` fails with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`. The v2 API is otherwise identical to v1 for
+  what this plan uses (`getPublicKey`, `sign`, `verify`), and `@scure/base` 2.2.0
+  keeps `base58.encode` / `base58.decode` unchanged — both verified against the
+  installed versions.
+- **`npm test` is the gate, not `npm run typecheck`.** This repo has ~237
+  pre-existing `vue-tsc` errors on `main`, most of them from `useRuntimeConfig()`
+  resolving to `{}` (so `config.web3.appDomain` errors even though the key
+  exists). Measured at merge base 234926f, before any work on this branch. Steps
+  below that say "run typecheck, expect no errors" mean **no NEW errors beyond
+  that baseline** — compare counts, do not expect zero. A green full test suite
+  is the real signal.
 - **Test commands:** whole suite `npm test`; one file `npx vitest run tests/<file>.test.ts`; one case `npx vitest run tests/<file>.test.ts -t "<name>"`.
 - **Test harness:** tests import real server modules via the `#utils` alias. `tests/setup/nuxt-globals.ts` installs stand-ins for Nuxt auto-imports; `createTestDb()` / `destroyTestDbs()` from `tests/setup/db.ts` give each test a fresh on-disk SQLite file. Never mock cryptography — every test signs with a real deterministic key.
 - **Commit format:** conventional commits (commitlint is enforced by a husky hook).
@@ -625,27 +638,52 @@ In `server/utils/db.ts`, replace the `users` CREATE TABLE inside `initSchema` wi
 
 Replace the body of `server/api/auth/google.get.ts`:
 
-```ts
-import { resolveIdentity } from '#utils/auth/identities';
+The old handler wrote `users (google_id, ...)`, and that column no longer exists,
+so it must be rewritten in the same task that removes it. `resolveIdentity` does
+not exist until Task 9, so this writes the two tables directly for now; Task 9
+Step 5 replaces this body with a `resolveIdentity` call once that function
+exists. Every task must leave a repo that type-checks.
 
+```ts
 export default defineOAuthGoogleEventHandler({
   async onSuccess(event, { user }) {
     try {
-      const session = await getUserSession(event);
-      const currentUserId = (session.user as { id: number } | undefined)?.id ?? null;
+      const db = useDb();
+      const sub = String(user.sub);
 
-      const { userId } = resolveIdentity(
-        {
-          provider: 'google',
-          subject: String(user.sub),
-          displayName: user.name ?? '',
-          email: user.email ?? null,
-          avatar: user.picture ?? '',
-        },
-        currentUserId
-      );
+      const upsert = db.transaction(() => {
+        const identity = db
+          .prepare("SELECT user_id FROM user_identities WHERE provider = 'google' AND subject = ?")
+          .get(sub) as { user_id: number } | undefined;
 
-      const row = useDb()
+        if (identity) {
+          db.prepare('UPDATE users SET email = ?, name = ?, avatar = ? WHERE id = ?').run(
+            user.email ?? null,
+            user.name ?? '',
+            user.picture ?? '',
+            identity.user_id
+          );
+          db.prepare(
+            "UPDATE user_identities SET last_used_at = datetime('now') WHERE provider = 'google' AND subject = ?"
+          ).run(sub);
+          return identity.user_id;
+        }
+
+        const { id } = db
+          .prepare('INSERT INTO users (email, name, avatar) VALUES (?, ?, ?) RETURNING id')
+          .get(user.email ?? null, user.name ?? '', user.picture ?? '') as { id: number };
+
+        db.prepare(
+          `INSERT INTO user_identities (user_id, provider, subject, last_used_at)
+           VALUES (?, 'google', ?, datetime('now'))`
+        ).run(id, sub);
+
+        return id;
+      });
+
+      const userId = upsert();
+
+      const row = db
         .prepare('SELECT id, email, name, avatar FROM users WHERE id = ?')
         .get(userId) as { id: number; email: string | null; name: string; avatar: string };
 
@@ -662,8 +700,6 @@ export default defineOAuthGoogleEventHandler({
   },
 });
 ```
-
-`resolveIdentity` lands in Task 9. Until then this file will not type-check; that is expected and is resolved there.
 
 - [ ] **Step 7: Run the migration tests to verify they pass**
 
@@ -1117,7 +1153,7 @@ git commit -m "feat(auth): add eip155 chain adapter"
 ```ts
 // tests/auth-chain-solana.test.ts
 import { describe, it, expect } from 'vitest';
-import { ed25519 } from '@noble/curves/ed25519';
+import { ed25519 } from '@noble/curves/ed25519.js';
 import { base58 } from '@scure/base';
 import { solanaAdapter } from '#utils/auth/chains/solana';
 
@@ -1216,7 +1252,7 @@ Expected: FAIL — cannot resolve `#utils/auth/chains/solana`.
 
 ```ts
 // server/utils/auth/chains/solana.ts
-import { ed25519 } from '@noble/curves/ed25519';
+import { ed25519 } from '@noble/curves/ed25519.js';
 import { base58 } from '@scure/base';
 import type { ChainAdapter, MessageInput, ParsedMessage } from '../types';
 
@@ -1569,7 +1605,7 @@ git commit -m "feat(auth): add polkadot chain adapter"
 // tests/auth-verify.test.ts
 import { describe, it, expect } from 'vitest';
 import { privateKeyToAccount } from 'viem/accounts';
-import { ed25519 } from '@noble/curves/ed25519';
+import { ed25519 } from '@noble/curves/ed25519.js';
 import { base58 } from '@scure/base';
 import { generateNonce, verifyLoginAttempt, getAuthConfig } from '#utils/auth/verify';
 import { getAdapter } from '#utils/auth/chains';
@@ -1918,13 +1954,18 @@ export async function verifyLoginAttempt(
 Run: `npx vitest run tests/auth-verify.test.ts`
 Expected: PASS — all fifteen cases.
 
-- [ ] **Step 6: Delete the superseded module and its test**
+- [ ] **Step 6: Delete only the superseded test**
 
 ```bash
-git rm server/utils/auth-wallet.ts tests/auth-wallet.test.ts
+git rm tests/auth-wallet.test.ts
 ```
 
-Its coverage now lives in `tests/auth-chain-eip155.test.ts` and `tests/auth-verify.test.ts`. The remaining consumers (`server/api/auth/wallet/*`, `server/utils/nft-ownership.ts`) are updated in Tasks 10 and 11.
+Its coverage now lives in `tests/auth-chain-eip155.test.ts` and `tests/auth-verify.test.ts`.
+
+**Leave `server/utils/auth-wallet.ts` in place.** Three endpoints under
+`server/api/auth/wallet/` still import it, and they are not rewritten until Task
+11 — deleting the module here would break the build for three tasks. Task 11
+Step 3 removes it in the same commit that removes its last importer.
 
 - [ ] **Step 7: Commit**
 
@@ -2234,10 +2275,53 @@ export function unlinkIdentity(userId: number, identityId: number): void {
 Run: `npx vitest run tests/auth-identities.test.ts`
 Expected: PASS — all ten cases.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Refactor Google sign-in onto `resolveIdentity`**
+
+Task 3 gave `server/api/auth/google.get.ts` an inline transaction because
+`resolveIdentity` did not exist yet. It does now, and it is the single place
+account creation and linking belong. Replace the whole `try` block body — from
+`const db = useDb();` through the `setUserSession` call — with:
+
+```ts
+const session = await getUserSession(event);
+const currentUserId = (session.user as { id: number } | undefined)?.id ?? null;
+
+const { userId } = resolveIdentity(
+  {
+    provider: 'google',
+    subject: String(user.sub),
+    displayName: user.name ?? '',
+    email: user.email ?? null,
+    avatar: user.picture ?? '',
+  },
+  currentUserId
+);
+
+const row = useDb()
+  .prepare('SELECT id, email, name, avatar FROM users WHERE id = ?')
+  .get(userId) as { id: number; email: string | null; name: string; avatar: string };
+
+await setUserSession(event, { user: row });
+```
+
+and add the import at the top of the file:
+
+```ts
+import { resolveIdentity } from '#utils/auth/identities';
+```
+
+Signing in with Google while already signed in with a wallet now links the two,
+which is the behavior the account page in Task 16 depends on.
+
+- [ ] **Step 6: Verify the build is still green**
+
+Run: `npm run typecheck`
+Expected: no errors.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add server/utils/auth/identities.ts tests/auth-identities.test.ts
+git add server/utils/auth/identities.ts server/api/auth/google.get.ts tests/auth-identities.test.ts
 git commit -m "feat(auth): add identity resolution with account linking"
 ```
 
@@ -2470,25 +2554,132 @@ export default defineEventHandler(async (event) => {
 
 - [ ] **Step 5: Update the member management endpoints**
 
-Replace the body of `server/api/projects/[slug]/members/index.get.ts`:
+`server/api/projects/[slug]/members/index.get.ts` keeps its existing
+`{ admin, members }` response shape and its `requireProjectAccess` guard. The
+dashboard Team panel (`pages/dashboard/[slug]/index.vue`) binds directly to
+`team.admin.avatar` and `team.members[].pending`, so returning a bare array
+would break that panel at runtime, and switching to `requireProjectAdmin` would
+stop non-admin members from seeing the roster they can see today.
+
+What changes is only that wallet invites now appear alongside email invites, and
+that account info is joined through `user_identities` rather than by email
+string:
 
 ```ts
+// Team roster: the admin (project owner) first, then invited members.
 export default defineEventHandler(async (event) => {
-  const { project } = await requireProjectAdmin(event);
+  const { project } = await requireProjectAccess(event);
+  const db = useDb();
 
-  return useDb()
+  const admin = db
+    .prepare('SELECT email, name, avatar FROM users WHERE id = ?')
+    .get(project.owner_id) as { email: string | null; name: string; avatar: string } | undefined;
+
+  // A member may not have signed in yet — join their account when one exists.
+  // Email invites match on users.email; wallet invites match through the
+  // identity table, so a member who signed in with a wallet still resolves.
+  const members = db
     .prepare(
-      'SELECT id, kind, identifier, role, added_at FROM project_members WHERE project_id = ? ORDER BY added_at'
+      `
+    SELECT m.id, m.kind, m.identifier, m.added_at, u.name, u.avatar
+    FROM project_members m
+    LEFT JOIN users u ON u.id = (
+      CASE WHEN m.kind = 'email'
+        THEN (SELECT id FROM users WHERE lower(email) = m.identifier)
+        ELSE (SELECT user_id FROM user_identities i
+              WHERE i.provider = m.kind AND i.subject = m.identifier)
+      END
+    )
+    WHERE m.project_id = ?
+    ORDER BY m.added_at, m.id
+  `
     )
     .all(project.id) as {
     id: number;
     kind: string;
     identifier: string;
-    role: string;
     added_at: string;
+    name: string | null;
+    avatar: string | null;
   }[];
+
+  return {
+    admin: {
+      email: admin?.email ?? '',
+      name: admin?.name ?? '',
+      avatar: admin?.avatar ?? '',
+      role: 'admin',
+    },
+    members: members.map((m) => ({
+      id: m.id,
+      kind: m.kind,
+      // `email` is retained for the email case so the existing panel keeps
+      // working; wallet rows put the address here for display.
+      email: m.identifier,
+      identifier: m.identifier,
+      name: m.name ?? '',
+      avatar: m.avatar ?? '',
+      pending: m.name === null,
+      role: 'member',
+    })),
+  };
 });
 ```
+
+Then teach the panel to render a wallet row. In `pages/dashboard/[slug]/index.vue`,
+add `kind: string;` and `identifier: string;` to the `TeamMember` interface, and
+in the member row replace the bare `member.email` display with a label that
+shortens an address:
+
+```ts
+const KIND_LABELS: Record<string, string> = {
+  email: '',
+  eip155: 'Ethereum',
+  solana: 'Solana',
+  polkadot: 'Polkadot',
+};
+
+/** Emails render in full; addresses are unreadable at full length. */
+function memberLabel(member: TeamMember): string {
+  if (member.kind === 'email') return member.email;
+  const a = member.identifier;
+  const short = a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a;
+  return `${KIND_LABELS[member.kind] ?? member.kind} ${short}`;
+}
+```
+
+and use `memberLabel(member)` everywhere the row currently shows `member.email`.
+
+Finally, expose invite-by-address in the panel. The POST endpoint accepts a
+`kind`, but `addMember()` only ever sends `{ email }`, so wallet invites — the
+whole point of keying membership by identity — would be reachable only through
+the API. Add a kind selector beside the invite input:
+
+```ts
+const newMemberKind = ref<'email' | 'eip155' | 'solana' | 'polkadot'>('email');
+
+async function addMember() {
+  teamBusy.value = true;
+  teamError.value = '';
+  try {
+    await $fetch(`/api/projects/${slug}/members`, {
+      method: 'POST',
+      body: { kind: newMemberKind.value, identifier: newMemberInput.value },
+    });
+    newMemberInput.value = '';
+    await loadTeam();
+  } catch (e: any) {
+    teamError.value = e.data?.message ?? 'Failed to add member';
+  } finally {
+    teamBusy.value = false;
+  }
+}
+```
+
+Rename `newMemberEmail` to `newMemberInput`, bind a `<select>` to
+`newMemberKind` with the four options, and switch the input's placeholder and
+`type` on the selected kind (`type="email"` only for `email`, so a wallet
+address is not rejected by browser validation).
 
 Replace the body of `server/api/projects/[slug]/members/index.post.ts`:
 
@@ -2497,7 +2688,10 @@ import { getAdapter } from '#utils/auth/chains';
 import { WALLET_PROVIDERS, type WalletProvider } from '#utils/auth/types';
 
 export default defineEventHandler(async (event) => {
-  const { project } = await requireProjectAdmin(event);
+  // requireProjectAccess, not Admin: any member manages members in this product
+  // ("Everyone below can edit this project and manage members" — the panel's own
+  // copy), and that is what this endpoint enforced before this plan touched it.
+  const { project } = await requireProjectAccess(event);
   const body = await readBody<{ kind?: string; identifier?: string; email?: string }>(event);
 
   // `email` stays accepted so an existing client keeps working.
@@ -2719,9 +2913,15 @@ export default defineEventHandler(async (event) => {
 
 ```bash
 git rm server/api/auth/wallet/get-nonce.post.ts server/api/auth/wallet/logout.post.ts
+git rm server/utils/auth-wallet.ts
 ```
 
-`server/api/auth/logout.post.ts` now covers both, because there is only one session key.
+`server/api/auth/logout.post.ts` now covers both, because there is only one
+session key.
+
+`auth-wallet.ts` is deleted here rather than in Task 8 because the two endpoints
+rewritten in Steps 1–2, plus `get-nonce.post.ts` deleted just above, were its
+last importers. Removing it in the same commit keeps every task's build green.
 
 - [ ] **Step 4: Fix the remaining import of the deleted module**
 
@@ -2743,7 +2943,22 @@ For each hit, apply these substitutions:
 | `requireWalletUser`, `requireWalletProjectAccess`, `requireWalletProjectAdmin`, `isWalletProjectMember`, `getSessionWallet` | `requireUser`, `requireProjectAccess`, `requireProjectAdmin`, `isProjectMember` from `#utils/auth` — these are now the only path |
 | `SessionWalletUser`, `WalletUser` types                                                                                     | `SessionUser` from `#utils/auth`                                                                                                 |
 
-`server/utils/nft-ownership.ts` is the known hit: it imports nothing from `auth-wallet` directly but compares lowercased EVM addresses, which is unchanged. Verify with the grep above rather than assuming.
+**There are exactly four importers, and all four must be handled in this task —
+otherwise deleting the module breaks the build.** Note that three of them use a
+multi-line `import { … } from '#utils/auth-wallet'`, so a grep that filters for
+lines containing the word `import` will miss them; grep for `auth-wallet` alone.
+
+| Importer                                       | Handling                                                                                                                                             |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server/api/auth/wallet/get-nonce.post.ts`     | deleted in Step 3                                                                                                                                    |
+| `server/api/auth/wallet/login-message.post.ts` | rewritten in Step 1                                                                                                                                  |
+| `server/api/auth/wallet/login.post.ts`         | rewritten in Step 2                                                                                                                                  |
+| `server/utils/nft-ownership.ts`                | **`import { upsertWalletUser } from './auth-wallet'`** — swap for `resolveIdentity({ provider: 'eip155', subject: addr }, null)` per the table above |
+
+The `nft-ownership.ts` import did not exist when this plan was written; Task 4
+added it while adapting that file to the unified schema. Its behavior is covered
+indirectly by `tests/token-gating.test.ts`, which asserts on the
+`user_identities` rows the call produces — run that file after the swap.
 
 - [ ] **Step 5: Verify the whole suite passes and the app builds**
 

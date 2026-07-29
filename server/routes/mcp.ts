@@ -58,7 +58,8 @@ function errorText(value: string) {
   return { content: [{ type: 'text' as const, text: value }], isError: true };
 }
 
-function projectStructure(project: ProjectRow): string {
+/** The section/page tree the get_project tool returns. Exported for tests. */
+export function projectStructure(project: ProjectRow): string {
   const db = useDb();
   const sections = db
     .prepare('SELECT id, title FROM sections WHERE project_id = ? ORDER BY position')
@@ -82,7 +83,8 @@ function projectStructure(project: ProjectRow): string {
   return lines.join('\n');
 }
 
-function getProjectBySlugSafe(slug: string): ProjectRow | undefined {
+/** Project lookup shared by every tool that takes a project slug. Exported for tests. */
+export function getProjectBySlugSafe(slug: string): ProjectRow | undefined {
   return useDb().prepare('SELECT * FROM projects WHERE slug = ?').get(slug.trim()) as
     ProjectRow | undefined;
 }
@@ -98,7 +100,7 @@ function getProjectBySlugSafe(slug: string): ProjectRow | undefined {
 async function authenticateWriteAccess(event: H3Event) {
   try {
     const session = await requireUserSession(event);
-    return session.user as { id: number; email: string; name: string; avatar: string };
+    return session.user as { id: number; email: string | null; name: string; avatar: string };
   } catch {
     throw createError({
       statusCode: 401,
@@ -108,20 +110,28 @@ async function authenticateWriteAccess(event: H3Event) {
 }
 
 /**
- * Check if user has project write access
+ * Check if user has project write access.
+ *
+ * Delegates to the identity-aware isProjectMember (#utils/auth) so a wallet
+ * invite here matches the same way it does everywhere else in the app —
+ * this function used to check only email-kind rows directly.
+ *
+ * Exported for tests (tests/mcp-write-access.test.ts), which is the only
+ * coverage standing between this and a revert to `project_members WHERE email = ?`.
  */
-function hasProjectWriteAccess(projectId: number, userId: number, email: string): boolean {
+export function hasProjectWriteAccess(
+  projectId: number,
+  userId: number,
+  email: string | null
+): boolean {
   const db = useDb();
 
   // Check if user is project owner
-  const owner = db.prepare('SELECT owner_id FROM projects WHERE id = ?').get(projectId);
+  const owner = db.prepare('SELECT owner_id FROM projects WHERE id = ?').get(projectId) as
+    { owner_id: number } | undefined;
   if (owner && owner.owner_id === userId) return true;
 
-  // Check if user is project member
-  const isMember = db
-    .prepare('SELECT 1 FROM project_members WHERE project_id = ? AND email = ?')
-    .get(projectId, email);
-  return !!isMember;
+  return isProjectMember(projectId, userId, email);
 }
 
 /**

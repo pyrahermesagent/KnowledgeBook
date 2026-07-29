@@ -1,197 +1,142 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import fs from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import Database from 'better-sqlite3';
+// tests/mcp.test.ts
+//
+// This file used to build its own SQLite schema by hand — including a
+// `users(google_id ...)` column and a `project_members(email ...)` table that
+// no longer exist — seed it, and then assert things about those private
+// tables. It never imported server/routes/mcp.ts, so every assertion held no
+// matter what the MCP endpoint did, and it was the last place in the repo still
+// describing google_id as a column.
+//
+// Rewritten to exercise the real lookup and structure-rendering the read tools
+// (get_project, get_page) actually call, against a real database built by the
+// app's own initSchema/migrations via createTestDb(). Write-path authorization
+// lives in tests/mcp-write-access.test.ts; the search SQL in
+// tests/mcp-search.test.ts.
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
+import { getProjectBySlugSafe, projectStructure } from '#server/routes/mcp';
+import type { ProjectRow } from '#utils/auth';
+import { createTestDb, destroyTestDbs } from './setup/db';
 
-describe('MCP Integration Tests', () => {
-  // Was an absolute path from one developer's machine, which made this suite
-  // unrunnable anywhere else.
-  const testDbPath = join(tmpdir(), 'knowledgebook-test.db');
-  let db: any;
+let db: ReturnType<typeof createTestDb>;
 
-  beforeAll(() => {
-    // Clean up any existing database
-    if (fs.existsSync(testDbPath)) {
-      fs.unlinkSync(testDbPath);
-    }
-    if (fs.existsSync(testDbPath + '-wal')) {
-      fs.unlinkSync(testDbPath + '-wal');
-    }
-    if (fs.existsSync(testDbPath + '-shm')) {
-      fs.unlinkSync(testDbPath + '-shm');
-    }
+function seed(): ProjectRow {
+  const user = db
+    .prepare('INSERT INTO users (email, name) VALUES (?, ?) RETURNING id')
+    .get('test@example.com', 'Test User') as { id: number };
 
-    db = new Database(testDbPath);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS users (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        google_id  TEXT NOT NULL UNIQUE,
-        email      TEXT NOT NULL,
-        name       TEXT NOT NULL DEFAULT '',
-        avatar     TEXT NOT NULL DEFAULT '',
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      CREATE TABLE IF NOT EXISTS projects (
-        id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        owner_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        slug         TEXT NOT NULL UNIQUE,
-        name         TEXT NOT NULL,
-        description  TEXT NOT NULL DEFAULT '',
-        accent_color TEXT NOT NULL DEFAULT '#346ddb',
-        icon_url     TEXT NOT NULL DEFAULT '',
-        created_at   TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      CREATE TABLE IF NOT EXISTS sections (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-        title      TEXT NOT NULL,
-        position   INTEGER NOT NULL DEFAULT 0
-      );
-      CREATE TABLE IF NOT EXISTS project_members (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-        email      TEXT NOT NULL,
-        added_at   TEXT NOT NULL DEFAULT (datetime('now')),
-        UNIQUE (project_id, email)
-      );
-      CREATE TABLE IF NOT EXISTS pages (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-        section_id INTEGER REFERENCES sections(id) ON DELETE CASCADE,
-        slug       TEXT NOT NULL,
-        title      TEXT NOT NULL,
-        content    TEXT NOT NULL DEFAULT '',
-        position   INTEGER NOT NULL DEFAULT 0,
-        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-        UNIQUE (project_id, slug)
-      );
-      -- Page version history for audit trail
-      CREATE TABLE IF NOT EXISTS page_versions (
-        id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-        page_id            INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
-        content            TEXT NOT NULL,
-        title              TEXT NOT NULL,
-        version            INTEGER NOT NULL DEFAULT 1,
-        edited_by_user_id  INTEGER REFERENCES users(id),
-        is_ai_edit         BOOLEAN NOT NULL DEFAULT 0,
-        version_comment    TEXT,
-        created_at         TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-    `);
+  const project = db
+    .prepare(
+      'INSERT INTO projects (owner_id, slug, name, description) VALUES (?, ?, ?, ?) RETURNING *'
+    )
+    .get(user.id, 'test-project', 'Test Project', 'A test documentation project') as ProjectRow;
 
-    // Seed test data
-    db.prepare('INSERT INTO users (google_id, email, name, avatar) VALUES (?, ?, ?, ?)').run(
-      'test-user-001',
-      'test@example.com',
-      'Test User',
-      'https://example.com/avatar.png'
-    );
+  const section = db
+    .prepare('INSERT INTO sections (project_id, title, position) VALUES (?, ?, ?) RETURNING id')
+    .get(project.id, 'Getting Started', 0) as { id: number };
 
-    const user = db.prepare('SELECT id FROM users WHERE google_id = ?').get('test-user-001');
-    db.prepare('INSERT INTO projects (owner_id, slug, name, description) VALUES (?, ?, ?, ?)').run(
-      user.id,
-      'test-project',
-      'Test Project',
-      'A test documentation project'
-    );
+  const insertPage = db.prepare(
+    'INSERT INTO pages (project_id, section_id, slug, title, content, position) VALUES (?, ?, ?, ?, ?, ?)'
+  );
+  insertPage.run(project.id, null, 'index', 'Home', '# Welcome\n\nThis is the home page.', 0);
+  insertPage.run(
+    project.id,
+    section.id,
+    'setup',
+    'Setup Guide',
+    '## Installation\n\nFollow these steps to set up the project.',
+    1
+  );
 
-    const project = db.prepare('SELECT id FROM projects WHERE slug = ?').get('test-project');
-    db.prepare('INSERT INTO sections (project_id, title, position) VALUES (?, ?, ?)').run(
-      project.id,
-      'Getting Started',
-      0
-    );
+  return project;
+}
 
-    db.prepare(
-      'INSERT INTO pages (project_id, section_id, slug, title, content, position) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(project.id, null, 'index', 'Home', '# Welcome\n\nThis is the home page.', 0);
-    db.prepare(
-      'INSERT INTO pages (project_id, section_id, slug, title, content, position) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(
-      project.id,
-      null,
-      'setup',
-      'Setup Guide',
-      '## Installation\n\nFollow these steps to set up the project.',
-      1
-    );
+describe('MCP project lookup', () => {
+  beforeEach(() => {
+    db = createTestDb();
   });
 
   afterAll(() => {
-    if (db) db.close();
-    try {
-      fs.unlinkSync(testDbPath);
-    } catch {}
-    try {
-      fs.unlinkSync(testDbPath + '-wal');
-    } catch {}
-    try {
-      fs.unlinkSync(testDbPath + '-shm');
-    } catch {}
+    destroyTestDbs();
   });
 
-  it('list_projects: should return list of projects', () => {
-    const projects = db.prepare('SELECT * FROM projects').all();
-    expect(projects.length).toBe(1);
-    expect(projects[0].name).toBe('Test Project');
-  });
+  it('returns the project for a valid slug', () => {
+    seed();
+    const project = getProjectBySlugSafe('test-project');
 
-  it('get_project: should return project structure for valid slug', () => {
-    const project = db.prepare('SELECT * FROM projects WHERE slug = ?').get('test-project');
     expect(project).toBeDefined();
-    expect(project.name).toBe('Test Project');
+    expect(project!.name).toBe('Test Project');
   });
 
-  it('get_project: should return null for non-existent project', () => {
-    const project = db.prepare('SELECT * FROM projects WHERE slug = ?').get('non-existent');
-    expect(project).toBeUndefined();
+  it('returns undefined for a slug no project has', () => {
+    seed();
+    expect(getProjectBySlugSafe('non-existent')).toBeUndefined();
   });
 
-  it('get_page: should return page content for valid project and page slug', () => {
-    const project = db.prepare('SELECT id FROM projects WHERE slug = ?').get('test-project');
-    const page = db
-      .prepare('SELECT * FROM pages WHERE project_id = ? AND slug = ?')
-      .get(project.id, 'index');
-    expect(page).toBeDefined();
-    expect(page.title).toBe('Home');
-    expect(page.content).toContain('Welcome');
+  it('trims whitespace off the slug an MCP client sent', () => {
+    seed();
+    expect(getProjectBySlugSafe('  test-project  ')).toBeDefined();
+  });
+});
+
+describe('MCP project structure', () => {
+  beforeEach(() => {
+    db = createTestDb();
   });
 
-  it('get_page: should return null for non-existent page', () => {
-    const project = db.prepare('SELECT id FROM projects WHERE slug = ?').get('test-project');
-    const page = db
-      .prepare('SELECT * FROM pages WHERE project_id = ? AND slug = ?')
-      .get(project.id, 'non-existent');
-    expect(page).toBeUndefined();
+  afterAll(() => {
+    destroyTestDbs();
   });
 
-  it('search: should find pages by keyword in title', () => {
-    const project = db.prepare('SELECT * FROM projects WHERE slug = ?').get('test-project');
-    const pages = db
-      .prepare('SELECT * FROM pages WHERE project_id = ? AND title LIKE ?')
-      .all(project.id, '%Home%');
-    expect(pages.length).toBeGreaterThan(0);
-    expect(pages[0].title).toBe('Home');
+  it('renders the project header, its description, and the page slugs a client needs next', () => {
+    const structure = projectStructure(seed());
+
+    expect(structure).toContain('# Test Project (project: test-project)');
+    expect(structure).toContain('A test documentation project');
+    // The slug, not just the title: get_page is called with the slug, so a
+    // structure that printed only titles would be unusable.
+    expect(structure).toContain('- Home (page: index)');
+    expect(structure).toContain('- Setup Guide (page: setup)');
   });
 
-  it('search: should find pages by keyword in content', () => {
-    const project = db.prepare('SELECT * FROM projects WHERE slug = ?').get('test-project');
-    const pages = db
-      .prepare('SELECT * FROM pages WHERE project_id = ? AND content LIKE ?')
-      .all(project.id, '%Installation%');
-    expect(pages.length).toBeGreaterThan(0);
-    expect(pages[0].title).toBe('Setup Guide');
+  it('nests a sectioned page under its section heading and leaves root pages above it', () => {
+    const structure = projectStructure(seed());
+    const lines = structure.split('\n');
+
+    const rootPage = lines.findIndex((l) => l.includes('(page: index)'));
+    const heading = lines.findIndex((l) => l === '## Getting Started');
+    const sectionedPage = lines.findIndex((l) => l.includes('(page: setup)'));
+
+    expect(rootPage).toBeGreaterThan(-1);
+    expect(heading).toBeGreaterThan(rootPage);
+    expect(sectionedPage).toBeGreaterThan(heading);
   });
 
-  it('search: should return no results for non-matching query', () => {
-    const project = db.prepare('SELECT * FROM projects WHERE slug = ?').get('test-project');
-    const pages = db
-      .prepare('SELECT * FROM pages WHERE project_id = ? AND title LIKE ?')
-      .all(project.id, '%nonexistentkeyword12345%');
-    expect(pages.length).toBe(0);
+  it('handles a project with no pages at all', () => {
+    const user = db
+      .prepare('INSERT INTO users (email, name) VALUES (?, ?) RETURNING id')
+      .get('empty@example.com', 'Empty') as { id: number };
+    const project = db
+      .prepare('INSERT INTO projects (owner_id, slug, name) VALUES (?, ?, ?) RETURNING *')
+      .get(user.id, 'empty-project', 'Empty Project') as ProjectRow;
+
+    const structure = projectStructure(project);
+    expect(structure).toContain('# Empty Project (project: empty-project)');
+    expect(structure).not.toContain('(page:');
+  });
+
+  it('only lists the requested project, not every project on the instance', () => {
+    const mine = seed();
+
+    const other = db
+      .prepare('INSERT INTO users (email, name) VALUES (?, ?) RETURNING id')
+      .get('other@example.com', 'Other') as { id: number };
+    const otherProject = db
+      .prepare('INSERT INTO projects (owner_id, slug, name) VALUES (?, ?, ?) RETURNING id')
+      .get(other.id, 'other-project', 'Other Project') as { id: number };
+    db.prepare(
+      'INSERT INTO pages (project_id, slug, title, content, position) VALUES (?, ?, ?, ?, ?)'
+    ).run(otherProject.id, 'secret', 'Secret Page', 'nope', 0);
+
+    expect(projectStructure(mine)).not.toContain('Secret Page');
   });
 });

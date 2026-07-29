@@ -2,7 +2,13 @@
 import { BookOpen, PenLine, Zap, Palette } from '@lucide/vue';
 
 const { loggedIn, user } = useUserSession();
-const authError = computed(() => Boolean(useRoute().query.auth_error));
+// 'linked' is server/api/auth/google.get.ts's marker for resolveIdentity's 409:
+// the Google account is already attached to a different KnowledgeBook account.
+// Any other value is the generic failure.
+const authError = computed(() => {
+  const value = useRoute().query.auth_error;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+});
 </script>
 
 <template>
@@ -11,12 +17,16 @@ const authError = computed(() => Boolean(useRoute().query.auth_error));
       <div class="brand"><BookOpen :size="22" class="brand-mark" /> KnowledgeBook</div>
       <nav>
         <NuxtLink v-if="loggedIn" to="/dashboard" class="btn btn-primary"> Dashboard </NuxtLink>
-        <a v-else href="/api/auth/google" class="btn btn-primary">Sign in with Google</a>
+        <a v-else href="#signin" class="btn btn-primary">Sign in</a>
       </nav>
     </header>
 
     <main class="hero">
-      <p v-if="authError" class="auth-error">
+      <p v-if="authError === 'linked'" class="auth-error">
+        That Google account is already a login method for a different KnowledgeBook account. Sign
+        out of that account first, then link it here.
+      </p>
+      <p v-else-if="authError" class="auth-error">
         Sign-in failed on our side — please try again. If it keeps happening, the server logs have
         the details.
       </p>
@@ -25,15 +35,7 @@ const authError = computed(() => Boolean(useRoute().query.auth_error));
         Create beautiful docs and guides with full markdown support, instant autosave and a
         shareable link. No build steps, no hassle.
       </p>
-      <a v-if="!loggedIn" href="/api/auth/google" class="btn btn-primary btn-lg">
-        <svg width="18" height="18" viewBox="0 0 24 24">
-          <path
-            fill="currentColor"
-            d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81"
-          />
-        </svg>
-        Get started with Google
-      </a>
+      <AuthSignInPanel v-if="!loggedIn" id="signin" class="hero-signin" />
       <NuxtLink v-else to="/dashboard" class="btn btn-primary btn-lg">
         Continue as {{ user?.name || user?.email }}
       </NuxtLink>
@@ -119,6 +121,10 @@ const authError = computed(() => Boolean(useRoute().query.auth_error));
 .btn-lg {
   padding: 12px 24px;
   font-size: 16px;
+}
+.hero-signin {
+  margin: 0 auto;
+  scroll-margin-top: 80px;
 }
 .features {
   display: grid;

@@ -1,9 +1,9 @@
-import type { H3Event } from 'h3';
 import {
   validateErc721Ownership,
   toSupportedNetwork,
   type SupportedNetwork,
 } from './token-validation';
+import { resolveIdentity } from './auth/identities';
 
 export interface NftOwnershipRecord {
   project_id: number;
@@ -78,25 +78,25 @@ export async function transferProjectOwnershipViaNft(
     };
   }
 
-  // The wallet record, the project owner and the ownership record must move
-  // together — a partial transfer would leave the project unreachable by either
-  // wallet.
+  // The recipient's account, the project owner and the ownership record must
+  // move together — a partial transfer would leave the project unreachable by
+  // either wallet. The recipient's account is the one behind their eip155
+  // identity (get-or-create, same as wallet login) now that wallets no longer
+  // have their own table — see migrations 3 and 4.
   db.transaction(() => {
-    db.prepare(
-      `
-      INSERT OR IGNORE INTO wallet_users (wallet_address, chain_id, created_at)
-      VALUES (?, 1, datetime('now'))
-    `
-    ).run(recipient);
+    const { userId: recipientUserId } = resolveIdentity(
+      { provider: 'eip155', subject: recipient },
+      null
+    );
 
     db.prepare(
       `
       UPDATE projects
-      SET owner_wallet_address = ?,
+      SET owner_id = ?,
           updated_at = datetime('now')
       WHERE id = ?
     `
-    ).run(recipient, projectId);
+    ).run(recipientUserId, projectId);
 
     db.prepare(
       `
@@ -184,28 +184,4 @@ export async function validateNftAccess(
 
   // Project doesn't require NFT ownership
   return { hasAccess: true };
-}
-
-/**
- * Middleware for NFT-gated project access
- */
-export async function nftGateMiddleware(event: H3Event): Promise<void> {
-  const wallet = await getSessionWallet(event);
-  const slug = getRouterParam(event, 'slug')!;
-  const project = getProjectBySlug(slug);
-
-  if (!project) {
-    throw createError({ statusCode: 404, message: 'Project not found' });
-  }
-
-  if (wallet) {
-    const { hasAccess, reason } = await validateNftAccess(project.id, wallet.wallet_address);
-
-    if (!hasAccess) {
-      throw createError({
-        statusCode: 403,
-        message: reason || 'Project access restricted by NFT ownership',
-      });
-    }
-  }
 }

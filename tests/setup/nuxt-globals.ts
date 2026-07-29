@@ -16,7 +16,11 @@ export interface TestRuntimeConfig {
   arbitrumRpcUrl: string;
   baseRpcUrl: string;
   encryptionMasterKey: string;
-  web3: { chainId: string; appDomain: string; appUri: string };
+  web3: {
+    evmChainIds: string;
+    appDomain: string;
+    appUri: string;
+  };
   session: { password: string };
 }
 
@@ -28,7 +32,7 @@ const runtimeConfig: TestRuntimeConfig = {
   baseRpcUrl: 'https://rpc.test/base',
   encryptionMasterKey: 'test-master-secret-0123456789abcdef0123456789abcdef',
   web3: {
-    chainId: '1',
+    evmChainIds: '1,10,137,8453,42161',
     appDomain: 'test.knowledgebook.app',
     appUri: 'https://test.knowledgebook.app/login',
   },

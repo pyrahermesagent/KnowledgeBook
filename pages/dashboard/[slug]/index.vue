@@ -267,10 +267,27 @@ async function deleteProject() {
 // ---------- team ----------
 interface TeamMember {
   id: number;
+  kind: string;
   email: string;
+  identifier: string;
   name: string;
   avatar: string;
   pending: boolean;
+}
+
+const KIND_LABELS: Record<string, string> = {
+  email: '',
+  eip155: 'Ethereum',
+  solana: 'Solana',
+  polkadot: 'Polkadot',
+};
+
+/** Emails render in full; addresses are unreadable at full length. */
+function memberLabel(member: TeamMember): string {
+  if (member.kind === 'email') return member.email;
+  const a = member.identifier;
+  const short = a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a;
+  return `${KIND_LABELS[member.kind] ?? member.kind} ${short}`;
 }
 const { user: sessionUser } = useUserSession();
 const showTeam = ref(false);
@@ -278,7 +295,15 @@ const team = ref<{
   admin: { email: string; name: string; avatar: string };
   members: TeamMember[];
 } | null>(null);
-const newMemberEmail = ref('');
+const newMemberInput = ref('');
+const newMemberKind = ref<'email' | 'eip155' | 'solana' | 'polkadot'>('email');
+const KIND_PLACEHOLDERS: Record<string, string> = {
+  email: 'name@gmail.com',
+  eip155: '0x…',
+  solana: 'Solana address',
+  polkadot: 'Polkadot address',
+};
+const newMemberPlaceholder = computed(() => KIND_PLACEHOLDERS[newMemberKind.value] ?? '');
 const teamError = ref('');
 const teamBusy = ref(false);
 
@@ -302,9 +327,9 @@ async function addMember() {
   try {
     await $fetch(`/api/projects/${slug}/members`, {
       method: 'POST',
-      body: { email: newMemberEmail.value },
+      body: { kind: newMemberKind.value, identifier: newMemberInput.value },
     });
-    newMemberEmail.value = '';
+    newMemberInput.value = '';
     await loadTeam();
   } catch (e: any) {
     teamError.value = e.data?.message ?? 'Failed to add member';
@@ -584,12 +609,12 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` });
           <div v-for="member in team.members" :key="member.id" class="member-row">
             <img v-if="member.avatar" :src="member.avatar" alt="" class="member-avatar" />
             <span v-else class="member-avatar member-avatar-fallback">{{
-              (member.name || member.email)[0]?.toUpperCase()
+              (member.name || memberLabel(member))[0]?.toUpperCase()
             }}</span>
             <span class="member-name">
-              {{ member.name || member.email }}
+              {{ member.name || memberLabel(member) }}
               <span class="muted member-email">{{
-                member.name ? member.email : 'Has not signed in yet'
+                member.name ? memberLabel(member) : 'Has not signed in yet'
               }}</span>
             </span>
             <span v-if="member.pending" class="badge">Invited</span>
@@ -601,15 +626,21 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` });
         </div>
 
         <form class="member-add" @submit.prevent="addMember">
+          <select v-model="newMemberKind" class="select-size member-add-kind" :disabled="teamBusy">
+            <option value="email">Email</option>
+            <option value="eip155">Ethereum</option>
+            <option value="solana">Solana</option>
+            <option value="polkadot">Polkadot</option>
+          </select>
           <input
-            v-model="newMemberEmail"
+            v-model="newMemberInput"
             class="input"
-            type="email"
-            placeholder="name@gmail.com"
+            :type="newMemberKind === 'email' ? 'email' : 'text'"
+            :placeholder="newMemberPlaceholder"
             required
             :disabled="teamBusy"
           />
-          <button class="btn btn-primary" :disabled="teamBusy || !newMemberEmail.trim()">
+          <button class="btn btn-primary" :disabled="teamBusy || !newMemberInput.trim()">
             {{ teamBusy ? 'Adding…' : 'Add member' }}
           </button>
         </form>
@@ -1059,6 +1090,9 @@ useHead({ title: () => `${project.value?.name ?? 'Editor'} · KnowledgeBook` });
 }
 .member-add .input {
   flex: 1;
+}
+.member-add-kind {
+  flex-shrink: 0;
 }
 .error {
   color: #c0392b;

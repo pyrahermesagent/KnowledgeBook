@@ -25,6 +25,13 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // Overridable via NUXT_* environment variables (see .env.example)
     databasePath: '.data/knowledgebook.db',
+    // nuxt-auth-utils already defaults the session cookie to SameSite=Lax; it is
+    // pinned here because the auth model now depends on it. A wallet login POST
+    // links the signing wallet to whatever session the request carries, so a
+    // cross-site POST that arrived with the victim's cookie would permanently
+    // attach an attacker's wallet to the victim's account. Lax is what stops the
+    // cookie riding along — too load-bearing to leave as somebody's default.
+    session: { cookie: { sameSite: 'lax' } },
     s3: {
       endpoint: '',
       region: '',
@@ -43,7 +50,10 @@ export default defineNuxtConfig({
     // login message and re-checked server side, so they must match the origin
     // the app is actually served from.
     web3: {
-      chainId: '1',
+      // Comma-separated EIP-155 chain ids accepted in a SIWE login message.
+      // Identity is ecosystem-wide, so this only constrains which chain a user
+      // may be connected to while signing — not who they are.
+      evmChainIds: '1,10,137,8453,42161',
       appDomain: 'localhost:3000',
       appUri: 'http://localhost:3000/login',
     },

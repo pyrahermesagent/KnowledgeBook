@@ -1,26 +1,36 @@
+import { resolveIdentity } from '#utils/auth/identities';
+
 export default defineOAuthGoogleEventHandler({
   async onSuccess(event, { user }) {
     try {
-      const db = useDb();
-      db.prepare(
-        `
-        INSERT INTO users (google_id, email, name, avatar)
-        VALUES (@sub, @email, @name, @picture)
-        ON CONFLICT (google_id) DO UPDATE SET email = @email, name = @name, avatar = @picture
-      `
-      ).run({
-        sub: String(user.sub),
-        email: user.email ?? '',
-        name: user.name ?? '',
-        picture: user.picture ?? '',
-      });
-      const row = db
-        .prepare('SELECT id, email, name, avatar FROM users WHERE google_id = ?')
-        .get(String(user.sub)) as { id: number; email: string; name: string; avatar: string };
+      const session = await getUserSession(event);
+      const currentUserId = (session.user as { id: number } | undefined)?.id ?? null;
+
+      const { userId } = resolveIdentity(
+        {
+          provider: 'google',
+          subject: String(user.sub),
+          displayName: user.name ?? '',
+          email: user.email ?? null,
+          avatar: user.picture ?? '',
+        },
+        currentUserId
+      );
+
+      const row = useDb()
+        .prepare('SELECT id, email, name, avatar FROM users WHERE id = ?')
+        .get(userId) as { id: number; email: string | null; name: string; avatar: string };
+
       await setUserSession(event, { user: row });
     } catch (error) {
       console.error('Google OAuth callback failed after token exchange:', error);
-      return sendRedirect(event, '/?auth_error=1');
+
+      // resolveIdentity's 409 is the only failure here the user can act on
+      // ("this Google account is linked to another account, sign out first"),
+      // so it gets its own param and its own message on the landing page rather
+      // than being flattened into the generic try-again text.
+      const statusCode = (error as { statusCode?: number } | null)?.statusCode;
+      return sendRedirect(event, statusCode === 409 ? '/?auth_error=linked' : '/?auth_error=1');
     }
     return sendRedirect(event, '/dashboard');
   },

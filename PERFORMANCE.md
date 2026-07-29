@@ -53,7 +53,9 @@ The optimizations focus on reducing encryption/decryption overhead while maintai
 
 ### 3. Database Indexes
 
-**File**: `migrations/004_add_encryption_indexes.sql`
+**File**: `server/utils/db.ts` (`initSchema`) — these were once a standalone
+`migrations/004_add_encryption_indexes.sql`, which was never read by anything and
+has been deleted. Schema changes now go through `initSchema` / `server/utils/migrations.ts`.
 
 ```sql
 CREATE INDEX idx_pages_encrypted ON pages (project_id, is_encrypted);
